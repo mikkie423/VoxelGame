@@ -67,6 +67,8 @@ void AGreedyChunk::BeginPlay()
 
 void AGreedyChunk::GenerateBlocks()
 {
+    UE_LOG(LogTemp, Warning, TEXT("Generating Blocks...."));
+
     FVector Location = GetActorLocation();
 
     for (int x = 0; x < Size.X; ++x)
@@ -102,6 +104,8 @@ void AGreedyChunk::ApplyMesh()
 
 void AGreedyChunk::GenerateMesh()
 {
+    UE_LOG(LogTemp, Warning, TEXT("Generating Mesh...."));
+
     for (int Axis = 0; Axis < 3; ++Axis)
     {
         const int Axis1 = (Axis + 1) % 3;
@@ -123,7 +127,7 @@ void AGreedyChunk::GenerateMesh()
         Mask.SetNum(Axis1Limit * Axis2Limit);
 
         //check each slice
-        for (ChunkItr[Axis] = 0; ChunkItr[Axis] < MainAxisLimit;)
+        for (ChunkItr[Axis] = -1; ChunkItr[Axis] < MainAxisLimit;)
         {
             //Index inside the mask
             int N = 0;
@@ -229,6 +233,9 @@ void AGreedyChunk::GenerateMesh()
 
 void AGreedyChunk::CreateQuad(FMask Mask, FIntVector AxisMask, FIntVector V1, FIntVector V2, FIntVector V3, FIntVector V4)
 {
+
+    UE_LOG(LogTemp, Warning, TEXT("Creating Quad...."));
+
     const auto Normal = FVector(AxisMask * Mask.Normal);
 
     MeshData.Vertices.Add(FVector(V1) * 100);

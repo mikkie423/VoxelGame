@@ -3,7 +3,6 @@
 
 #include "ChunkBase.h"
 
-#include "Enums.h"
 #include "FastNoiseLite.h"
 #include "ProceduralMeshComponent.h"
 
@@ -15,10 +14,6 @@ AChunkBase::AChunkBase()
 
 	Mesh = CreateDefaultSubobject<UProceduralMeshComponent>("Mesh");
 	Noise = new FastNoiseLite();
-
-	Noise->SetFrequency(Frequency);
-	Noise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	Noise->SetFractalType(FastNoiseLite::FractalType_FBm);
 
 	//Mesh Settings
 	Mesh->SetCastShadow(false);
@@ -33,6 +28,12 @@ void AChunkBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	Noise->SetFrequency(Frequency);
+	Noise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	Noise->SetFractalType(FastNoiseLite::FractalType_FBm);
+
+	Setup();
+
 	GenerateHeightMap();
 
 	GenerateMesh();
@@ -45,16 +46,50 @@ void AChunkBase::BeginPlay()
 
 void AChunkBase::GenerateHeightMap()
 {
-
-}
-
-void AChunkBase::GenerateMesh()
-{
-
+	switch (GenerationType)
+	{
+	case EGenerationType::GT_3D:
+		Generate3DHeightMap(GetActorLocation() / 100);
+		break;
+	case EGenerationType::GT_2D:
+		Generate2DHeightMap(GetActorLocation() / 100);
+		break;
+	default:
+		throw std::invalid_argument("Invalid Generation Type");
+	}
 }
 
 void AChunkBase::ApplyMesh() const
 {
-	Mesh->CreateMeshSection(0, MeshData.Vertices, MeshData.Triangles, MeshData.Normals, MeshData.UV0, TArray<FColor>(), TArray<FProcMeshTangent>(), false);
+	Mesh->SetMaterial(0, Material);
+	Mesh->CreateMeshSection(
+		0,
+		MeshData.Vertices,
+		MeshData.Triangles,
+		MeshData.Normals,
+		MeshData.UV0,
+		MeshData.Colors,
+		TArray<FProcMeshTangent>(),
+		true
+	);
+}
+
+void AChunkBase::ClearMesh()
+{
+	VertexCount = 0;
+	MeshData.Clear();
+}
+
+void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
+{
+	if (Position.X >= Size || Position.Y >= Size || Position.Z >= Size || Position.X < 0 || Position.Y < 0 || Position.Z < 0) return;
+
+	ModifyVoxelData(Position, Block);
+
+	ClearMesh();
+
+	GenerateMesh();
+
+	ApplyMesh();
 }
 

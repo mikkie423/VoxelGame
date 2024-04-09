@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
 #include "ChunkBase.h"
 #include "MarchingChunk.generated.h"
 
@@ -10,33 +11,29 @@
  * 
  */
 UCLASS()
-class  AMarchingChunk final : public AChunkBase
+class AMarchingChunk final : public AChunkBase
 {
 	GENERATED_BODY()
 	
 public:
-	AMarchingChunk();
+	UPROPERTY(EditDefaultsOnly, Category = "Marching Cubes")
+	float SurfaceLevel = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Marching Cubes")
-		float SurfaceLevel = 0.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Marching Cubes")
-		bool Interpolation = false;
+	bool Interpolation = false;
 
 protected:
-	virtual void GenerateHeightMap() override;
-
+	virtual void Setup() override;
+	virtual void Generate2DHeightMap(FVector Position) override;
+	virtual void Generate3DHeightMap(FVector Position) override;
 	virtual void GenerateMesh() override;
 
 private:
 	TArray<float> Voxels;
-	
-	int TriangleOrder[3] = { 0,1,2 };
+	int TriangleOrder[3] = { 0, 1, 2 };
 
 	void March(int X, int Y, int Z, const float Cube[8]);
-
 	int GetVoxelIndex(int X, int Y, int Z) const;
-
 	float GetInterpolationOffset(float V1, float V2) const;
 
 	const int VertexOffset[8][3] = {

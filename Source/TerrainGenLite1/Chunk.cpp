@@ -2,153 +2,159 @@
 
 
 #include "Chunk.h"
-#include "Enums.h"
 #include "FastNoiseLite.h"
-#include "ProceduralMeshComponent.h"
+//#include "ProceduralMeshComponent.h"
 
 
 
-// Sets default values
-AChunk::AChunk()
+void AChunk::Setup()
 {
-    // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-    PrimaryActorTick.bCanEverTick = false;
-
-
-    Mesh = CreateDefaultSubobject<UProceduralMeshComponent>("Mesh");
-    Noise = new FastNoiseLite();
-
-    Noise->SetFrequency(0.03f);
-    Noise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-    Noise->SetFractalType(FastNoiseLite::FractalType_FBm);
-
-    Blocks.SetNum(Size * Size * Size);
-
-    Mesh->SetCastShadow(false);
-
+	// Initialize Blocks
+	Blocks.SetNum(Size * Size * Size);
 }
 
-
-// Called when the game starts or when spawned
-void AChunk::BeginPlay()
+void AChunk::Generate2DHeightMap(const FVector Position)
 {
-    Super::BeginPlay();
+	for (int x = 0; x < Size; x++)
+	{
+		for (int y = 0; y < Size; y++)
+		{
+			const float Xpos = x + Position.X;
+			const float ypos = y + Position.Y;
 
-    GenerateBlocks();
+			const int Height = FMath::Clamp(FMath::RoundToInt((Noise->GetNoise(Xpos, ypos) + 1) * Size / 2), 0, Size);
 
-    GenerateMesh();
+			for (int z = 0; z < Height; z++)
+			{
+				Blocks[GetBlockIndex(x, y, z)] = EBlock::Stone;
+			}
 
-    UE_LOG(LogTemp, Warning, TEXT("Vertext Count : %d"), VertexCount);
+			for (int z = Height; z < Size; z++)
+			{
+				Blocks[GetBlockIndex(x, y, z)] = EBlock::Air;
+			}
 
-    ApplyMesh();
+		}
+	}
 }
 
-
-void AChunk::GenerateBlocks()
+void AChunk::Generate3DHeightMap(const FVector Position)
 {
-    FVector Location = GetActorLocation();
+	for (int x = 0; x < Size; ++x)
+	{
+		for (int y = 0; y < Size; ++y)
+		{
+			for (int z = 0; z < Size; ++z)
+			{
+				const auto NoiseValue = Noise->GetNoise(x + Position.X, y + Position.Y, z + Position.Z);
 
-    for (int x = 0; x < Size; ++x)
-    {
-        for (int y = 0; y < Size; ++y)
-        {
-            const float Xpos = (x * 100 + Location.X) / 100;
-            const float Ypos = (y * 100 + Location.Y) / 100;
-
-            float NoiseValue = Noise->GetNoise(Xpos, Ypos);
-            int Height = FMath::RoundToInt((NoiseValue + 1) * Size / 2);
-            Height = FMath::Clamp(Height, 0, Size);
-
-
-            for (int z = 0; z < Height; ++z)
-            {
-                Blocks[GetBlockIndex(x, y, z)] = EBlock::Stone;
-            }
-
-            for (int z = Height; z < Size; ++z)
-            {
-                Blocks[GetBlockIndex(x, y, z)] = EBlock::Air;
-            }
-        }
-    }
+				if (NoiseValue >= 0)
+				{
+					Blocks[GetBlockIndex(x, y, z)] = EBlock::Air;
+				}
+				else
+				{
+					Blocks[GetBlockIndex(x, y, z)] = EBlock::Stone;
+				}
+			}
+		}
+	}
 }
 
 void AChunk::GenerateMesh()
 {
-    for (int x = 0; x < Size; ++x)
-    {
-        for (int y = 0; y < Size; ++y)
-        {
-            for (int z = 0; z < Size; ++z)
-            {
-                if (Blocks[GetBlockIndex(x, y, z)] != EBlock::Air)
-                {
-                    const auto Position = FVector(x, y, z);
+	for (int x = 0; x < Size; x++)
+	{
+		for (int y = 0; y < Size; y++)
+		{
+			for (int z = 0; z < Size; z++)
+			{
+				if (Blocks[GetBlockIndex(x, y, z)] != EBlock::Air)
+				{
+					const auto Position = FVector(x, y, z);
 
-                    for (auto Direction : { EDirection::Forward, EDirection::Right, EDirection::Back, EDirection::Left, EDirection::Up, EDirection::Down })
-                    {
-                        if (Check(GetPositionInDirection(Direction, Position)))
-                        {
-                            CreateFace(Direction, Position * 100);
-                        }
-                    }
-                }
-            }
-        }
-    }
+					for (auto Direction : { EDirection::Forward, EDirection::Right, EDirection::Back, EDirection::Left, EDirection::Up, EDirection::Down })
+					{
+						if (Check(GetPositionInDirection(Direction, Position)))
+						{
+							CreateFace(Direction, Position * 100);
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
-void AChunk::ApplyMesh()
+bool AChunk::Check(const FVector Position) const
 {
-    Mesh->CreateMeshSection(0, VertexData, TriangleData, TArray<FVector>(), UVData, TArray<FColor>(), TArray<FProcMeshTangent>(), false);
+	if (Position.X >= Size || Position.Y >= Size || Position.X < 0 || Position.Y < 0 || Position.Z < 0) return true;
+	if (Position.Z >= Size) return true;
+	return Blocks[GetBlockIndex(Position.X, Position.Y, Position.Z)] == EBlock::Air;
 }
 
-bool AChunk::Check(FVector Position) const
+void AChunk::CreateFace(const EDirection Direction, const FVector Position)
 {
-    if (Position.X >= Size || Position.Y >= Size || Position.Z >= Size || Position.X < 0 || Position.Y < 0 || Position.Z < 0)
-    {
-        return true;
-    }
-    return Blocks[GetBlockIndex(Position.X, Position.Y, Position.Z)] == EBlock::Air;
+	const auto Color = FColor::MakeRandomColor();
+	const auto Normal = GetNormal(Direction);
+
+	MeshData.Vertices.Append(GetFaceVertices(Direction, Position));
+	MeshData.Triangles.Append({ VertexCount + 3, VertexCount + 2, VertexCount, VertexCount + 2, VertexCount + 1, VertexCount });
+	MeshData.Normals.Append({ Normal, Normal, Normal, Normal });
+	MeshData.Colors.Append({ Color, Color, Color, Color });
+	MeshData.UV0.Append({ FVector2D(1,1), FVector2D(1,0), FVector2D(0,0), FVector2D(0,1) });
+
+	VertexCount += 4;
 }
 
-void AChunk::CreateFace(EDirection Direction, FVector Position)
+TArray<FVector> AChunk::GetFaceVertices(EDirection Direction, const FVector Position) const
 {
-    VertexData.Append(GetFaceVertices(Direction, Position));
-    UVData.Append({ FVector2D(1, 1), FVector2D(1, 0), FVector2D(0, 0), FVector2D(0, 1) });
-    TriangleData.Append({ VertexCount + 3, VertexCount + 2, VertexCount, VertexCount + 2, VertexCount + 1, VertexCount });
-    VertexCount += 4;
+	TArray<FVector> Vertices;
+
+	for (int i = 0; i < 4; i++)
+	{
+		Vertices.Add(BlockVertexData[BlockTriangleData[i + static_cast<int>(Direction) * 4]] + Position);
+	}
+
+	return Vertices;
 }
 
-TArray<FVector> AChunk::GetFaceVertices(EDirection Direction, FVector Position) const
+FVector AChunk::GetPositionInDirection(const EDirection Direction, const FVector Position) const
 {
-    TArray<FVector> Vertices;
-
-    for (int i = 0; i < 4; ++i)
-    {
-        Vertices.Add(BlockVertexData[BlockTriangleData[i + static_cast<int>(Direction) * 4]] * Scale + Position);
-    }
-    return Vertices;
+	switch (Direction)
+	{
+	case EDirection::Forward: return Position + FVector::ForwardVector;
+	case EDirection::Back: return Position + FVector::BackwardVector;
+	case EDirection::Left: return Position + FVector::LeftVector;
+	case EDirection::Right: return Position + FVector::RightVector;
+	case EDirection::Up: return Position + FVector::UpVector;
+	case EDirection::Down: return Position + FVector::DownVector;
+	default: throw std::invalid_argument("Invalid direction");
+	}
 }
 
-FVector AChunk::GetPositionInDirection(EDirection Direction, FVector Position) const
+FVector AChunk::GetNormal(const EDirection Direction) const
 {
-    switch (Direction)
-    {
-    case EDirection::Forward: return Position + FVector::ForwardVector;
-    case EDirection::Right: return Position + FVector::RightVector;
-    case EDirection::Back: return Position + FVector::BackwardVector;
-    case EDirection::Left: return Position + FVector::LeftVector;
-    case EDirection::Up: return Position + FVector::UpVector;
-    case EDirection::Down: return Position + FVector::DownVector;
-    default: throw std::invalid_argument("Invalid direction");
-
-    }
-
-    return FVector();
+	switch (Direction)
+	{
+	case EDirection::Forward: return FVector::ForwardVector;
+	case EDirection::Right: return FVector::RightVector;
+	case EDirection::Back: return FVector::BackwardVector;
+	case EDirection::Left: return FVector::LeftVector;
+	case EDirection::Up: return FVector::UpVector;
+	case EDirection::Down: return FVector::DownVector;
+	default: throw std::invalid_argument("Invalid direction");
+	}
 }
 
-int AChunk::GetBlockIndex(int X, int Y, int Z) const
+void AChunk::ModifyVoxelData(const FIntVector Position, const EBlock Block)
 {
-    return Z * Size * Size + Y * Size + X;
+	const int Index = GetBlockIndex(Position.X, Position.Y, Position.Z);
+
+	Blocks[Index] = Block;
+}
+
+int AChunk::GetBlockIndex(const int X, const int Y, const int Z) const
+{
+	return Z * Size * Size + Y * Size + X;
 }

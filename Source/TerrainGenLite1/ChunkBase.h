@@ -3,8 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ChunkMeshData.h"
 #include "GameFramework/Actor.h"
+
+#include "ChunkMeshData.h"
+#include "Enums.h"
+
 #include "ChunkBase.generated.h"
 
 
@@ -13,7 +16,7 @@ class UProceduralMeshComponent;
 
 
 UCLASS(Abstract)
-class AChunkBase : public AActor
+class TERRAINGENLITE1_API AChunkBase : public AActor
 {
 	GENERATED_BODY()
 	
@@ -24,16 +27,23 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Chunk")
 		int Size = 64;
 
-	UPROPERTY(EditDefaultsOnly, Category = "HeightMap")
-		float	Frequency = 0.03f;
+		TObjectPtr<UMaterialInterface> Material;
+		float Frequency;
+		EGenerationType GenerationType;
+
+		UFUNCTION(BlueprintCallable, Category = "Chunk")
+		void ModifyVoxel(const FIntVector Position, const EBlock Block);
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	virtual void GenerateHeightMap();
+	virtual void Setup() PURE_VIRTUAL(AChunkBase::Setup);
+	virtual void Generate2DHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::Generate2DHeightMap);
+	virtual void Generate3DHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::Generate3DHeightMap);
+	virtual void GenerateMesh() PURE_VIRTUAL(AChunkBase::GenerateMesh);
 
-	virtual void GenerateMesh();
+	virtual void ModifyVoxelData(const FIntVector Position, const EBlock Block) PURE_VIRTUAL(AChunkBase::RemoveVoxelData);
 
 	TObjectPtr<UProceduralMeshComponent> Mesh;
 	FastNoiseLite* Noise;
@@ -42,4 +52,6 @@ protected:
 
 private:
 	void ApplyMesh() const;
+	void ClearMesh();
+	void GenerateHeightMap();
 };

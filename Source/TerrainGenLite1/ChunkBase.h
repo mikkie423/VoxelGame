@@ -34,10 +34,10 @@ public:
 		UFUNCTION(BlueprintCallable, Category = "Chunk")
 		void ModifyVoxel(const FIntVector Position, const EBlock Block);
 
-		UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		TArray<UMaterialInterface*> Materials;
-		TArray<FChunkMeshData> MeshPerMaterial;
-		TArray<int> VertexCountPerMat;
+		//UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		//TArray<UMaterialInterface*> Materials;
+		//TArray<FChunkMeshData> MeshPerMaterial;
+		//TArray<int> VertexCountPerMat;
 
 protected:
 	// Called when the game starts or when spawned

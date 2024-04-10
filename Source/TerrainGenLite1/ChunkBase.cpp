@@ -76,10 +76,8 @@ void AChunkBase::ApplyMesh() const
 
 void AChunkBase::ClearMesh()
 {
-	MeshPerMaterial.Empty();
-	VertexCountPerMat.Empty();
-	MeshPerMaterial.SetNum(Materials.Num());
-	VertexCountPerMat.SetNum(Materials.Num());
+	VertexCount = 0;
+	MeshData.Clear();
 }
 
 void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)

@@ -150,8 +150,8 @@ void AGreedyChunk::GenerateMesh()
 
 						DeltaAxis1[Axis1] = Width;
 						DeltaAxis2[Axis2] = Height;
-						int VoxelType = static_cast<int>(CurrentMask.Block) - 2;
-						VoxelType = FMath::Clamp(VoxelType, 0, Materials.Num());
+						//int VoxelType = static_cast<int>(CurrentMask.Block) - 2;
+						//VoxelType = FMath::Clamp(VoxelType, 0, Materials.Num());
 						CreateQuad(
 							CurrentMask, AxisMask, Width, Height,
 							ChunkItr,

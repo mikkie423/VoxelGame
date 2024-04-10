@@ -150,7 +150,8 @@ void AGreedyChunk::GenerateMesh()
 
 						DeltaAxis1[Axis1] = Width;
 						DeltaAxis2[Axis2] = Height;
-
+						int VoxelType = static_cast<int>(CurrentMask.Block) - 2;
+						VoxelType = FMath::Clamp(VoxelType, 0, Materials.Num());
 						CreateQuad(
 							CurrentMask, AxisMask, Width, Height,
 							ChunkItr,
@@ -196,7 +197,7 @@ void AGreedyChunk::CreateQuad(
 )
 {
 	const auto Normal = FVector(AxisMask * Mask.Normal);
-	auto Color = FColor::MakeRandomColor();
+	auto Color = FColor(0, 0, 0, GetTextureIndex(Mask.Block, Normal));
 
 	MeshData.Vertices.Append({
 		FVector(V1) * 100,
@@ -221,6 +222,14 @@ void AGreedyChunk::CreateQuad(
 		Normal
 		});
 
+
+	MeshData.Colors.Append({
+		Color,
+		Color,
+		Color,
+		Color
+		});
+
 	
 	if (Normal.X == 1 || Normal.X == -1)
 	{
@@ -241,14 +250,6 @@ void AGreedyChunk::CreateQuad(
 			});
 	}
 
-	MeshData.Colors.Append({
-		Color,
-		Color,
-		Color,
-		Color
-		});
-
-
 	VertexCount += 4;
 }
 
@@ -256,6 +257,8 @@ void AGreedyChunk::ModifyVoxelData(const FIntVector Position, const EBlock Block
 {
 	const int Index = GetBlockIndex(Position.X, Position.Y, Position.Z);
 
+	// Log the block information
+	UE_LOG(LogTemp, Warning, TEXT("X: %d, Y: %d, Z: %d"), Position.X, Position.Y, Position.Z);
 	Blocks[Index] = Block;
 }
 

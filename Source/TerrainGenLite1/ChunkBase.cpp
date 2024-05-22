@@ -36,12 +36,14 @@ void AChunkBase::BeginPlay()
 
 	GenerateHeightMap();
 
+	ClearMesh();
+
 	GenerateMesh();
 
 	UE_LOG(LogTemp, Warning, TEXT("Vertex Count : %d"), VertexCount);
 
 	ApplyMesh();
-	
+
 }
 
 void AChunkBase::GenerateHeightMap()
@@ -57,6 +59,8 @@ void AChunkBase::GenerateHeightMap()
 	default:
 		throw std::invalid_argument("Invalid Generation Type");
 	}
+
+	//GenerateBiomeHeightMap(GetActorLocation() / 100);
 }
 
 void AChunkBase::ApplyMesh() const
@@ -73,6 +77,7 @@ void AChunkBase::ApplyMesh() const
 		true
 	);
 }
+
 
 void AChunkBase::ClearMesh()
 {
@@ -91,5 +96,9 @@ void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
 	GenerateMesh();
 
 	ApplyMesh();
+
 }
+
+
+
 

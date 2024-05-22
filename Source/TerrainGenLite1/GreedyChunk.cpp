@@ -14,17 +14,21 @@ void AGreedyChunk::Setup()
 
 void AGreedyChunk::Generate2DHeightMap(const FVector Position)
 {
-	for (int x = 0; x < Size; x++)
+	UE_LOG(LogTemp, Warning, TEXT("Generating 2D Height Map"));
+
+	for (int x = 0; x < Size; ++x)
 	{
-		for (int y = 0; y < Size; y++)
+		for (int y = 0; y < Size; ++y)
 		{
 			const float Xpos = x + Position.X;
 			const float Ypos = y + Position.Y;
 
 			const int Height = FMath::Clamp(FMath::RoundToInt((Noise->GetNoise(Xpos, Ypos) + 1) * Size / 2), 0, Size);
 
-			for (int z = 0; z < Size; z++)
+			for (int z = 0; z < Size; ++z)
 			{
+				//if (z == 0) Blocks[GetBlockIndex(x, y, z)] = EBlock::Bedrock;
+				//else
 				if (z < Height - 3) Blocks[GetBlockIndex(x, y, z)] = EBlock::Stone;
 				else if (z < Height - 1) Blocks[GetBlockIndex(x, y, z)] = EBlock::Dirt;
 				else if (z == Height - 1) Blocks[GetBlockIndex(x, y, z)] = EBlock::Grass;
@@ -34,28 +38,119 @@ void AGreedyChunk::Generate2DHeightMap(const FVector Position)
 	}
 }
 
+
+
 void AGreedyChunk::Generate3DHeightMap(const FVector Position)
 {
+	UE_LOG(LogTemp, Warning, TEXT("Generating 3D Height Map"));
+
 	for (int x = 0; x < Size; ++x)
 	{
 		for (int y = 0; y < Size; ++y)
 		{
+			// Calculate surface height for this column
+			const float Xpos = x + Position.X;
+			const float Ypos = y + Position.Y;
+			const float SurfaceHeight = FMath::Clamp(FMath::RoundToInt((Noise->GetNoise(Xpos, Ypos) + 1) * Size / 2), 0, Size);
+
+
 			for (int z = 0; z < Size; ++z)
 			{
-				const auto NoiseValue = Noise->GetNoise(x + Position.X, y + Position.Y, z + Position.Z);
+				const double Zpos = z + Position.Z;
 
-				if (NoiseValue >= 0)
+				// Calculate noise value for cave generation
+				const auto NoiseValue = Noise->GetNoise(x + Position.X, y + Position.Y, Zpos);
+				int BaseZ = DrawDistance - (DrawDistance * 2);
+
+				if (z == 0 && ZRepeat == BaseZ) Blocks[GetBlockIndex(x, y, z)] = EBlock::Bedrock;
+
+				// Apply cave generation logic based on noise value
+				else if (NoiseValue >= 0 && Zpos <= SurfaceHeight - 7)
 				{
 					Blocks[GetBlockIndex(x, y, z)] = EBlock::Air;
 				}
 				else
 				{
-					Blocks[GetBlockIndex(x, y, z)] = EBlock::Stone;
+					// Adjust block types based on surface height
+					if (Zpos < SurfaceHeight - 3) Blocks[GetBlockIndex(x, y, z)] = EBlock::Stone;
+					else if (Zpos < SurfaceHeight - 1)  Blocks[GetBlockIndex(x, y, z)] = EBlock::Dirt;
+					else if (Zpos == SurfaceHeight - 1)
+					{
+						int randNum = FMath::FRandRange(1, 51);
+						//UE_LOG(LogTemp, Warning, TEXT("RandNum = %i"), randNum);
+						if (randNum == 1 && Zpos > 15)
+						{
+							Blocks[GetBlockIndex(x, y, z)] = EBlock::Dirt;
+							TreePositions.Add(FIntVector(x, y, z));
+						}
+						else
+						{
+							Blocks[GetBlockIndex(x, y, z)] = EBlock::Grass;
+						}
+					}
+					else Blocks[GetBlockIndex(x, y, z)] = EBlock::Air;
+					if (Zpos < 15) 
+					{ 
+						if (Blocks[GetBlockIndex(x, y, z)] == EBlock::Air)
+						{
+							Blocks[GetBlockIndex(x, y, z)] = EBlock::ShallowWater;
+						}
+						if (Blocks[GetBlockIndex(x, y, z)] == EBlock::Grass && Zpos > 10)
+						{
+								Blocks[GetBlockIndex(x, y, z)] = EBlock::Sand;
+						}
+						else if (Blocks[GetBlockIndex(x, y, z)] == EBlock::Dirt || Blocks[GetBlockIndex(x, y, z)] == EBlock::Grass)
+						{
+							Blocks[GetBlockIndex(x, y, z)] = EBlock::Gravel;
+						}
+					}
+				}
+			}
+		}
+	}
+	GenerateTrees(TreePositions);
+}
+
+
+
+void AGreedyChunk::GenerateBiomeHeightMap(const FVector Position)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Generating Biome Height Map"));
+	for (int x = 0; x < Size; ++x)
+	{
+		for (int y = 0; y < Size; ++y)
+		{
+			// Calculate surface height for this column
+			const double Xpos = x + Position.X;
+			const double Ypos = y + Position.Y;
+			const float SurfaceHeight = FMath::Clamp(FMath::RoundToInt((Noise->GetNoise(Xpos, Ypos) + 1) * Size / 2), 0, Size);
+
+
+			for (int z = 0; z < Size; ++z)
+			{
+				const double Zpos = z + Position.Z;
+
+				// Calculate noise value for cave generation
+				const auto NoiseValue = Noise->GetNoise(Xpos, Ypos, Zpos);
+
+				// Apply cave generation logic based on noise value
+				if (NoiseValue <= 0)
+				{
+					Blocks[GetBlockIndex(x, y, z)] = EBlock::Air;
+				}
+				else
+				{
+					// Adjust block types based on surface height
+					if (Zpos < SurfaceHeight - 3) Blocks[GetBlockIndex(x, y, z)] = EBlock::Stone;
+					else if (Zpos < SurfaceHeight - 1) Blocks[GetBlockIndex(x, y, z)] = EBlock::Dirt;
+					else if (Zpos <= SurfaceHeight - 1) Blocks[GetBlockIndex(x, y, z)] = EBlock::Grass;
+					else Blocks[GetBlockIndex(x, y, z)] = EBlock::Air;
 				}
 			}
 		}
 	}
 }
+
 
 void AGreedyChunk::GenerateMesh()
 {
@@ -150,8 +245,7 @@ void AGreedyChunk::GenerateMesh()
 
 						DeltaAxis1[Axis1] = Width;
 						DeltaAxis2[Axis2] = Height;
-						//int VoxelType = static_cast<int>(CurrentMask.Block) - 2;
-						//VoxelType = FMath::Clamp(VoxelType, 0, Materials.Num());
+
 						CreateQuad(
 							CurrentMask, AxisMask, Width, Height,
 							ChunkItr,
@@ -230,7 +324,7 @@ void AGreedyChunk::CreateQuad(
 		Color
 		});
 
-	
+
 	if (Normal.X == 1 || Normal.X == -1)
 	{
 		MeshData.UV0.Append({
@@ -253,11 +347,11 @@ void AGreedyChunk::CreateQuad(
 	VertexCount += 4;
 }
 
+
 void AGreedyChunk::ModifyVoxelData(const FIntVector Position, const EBlock Block)
 {
 	const int Index = GetBlockIndex(Position.X, Position.Y, Position.Z);
 
-	// Log the block information
 	UE_LOG(LogTemp, Warning, TEXT("X: %d, Y: %d, Z: %d"), Position.X, Position.Y, Position.Z);
 	Blocks[Index] = Block;
 }
@@ -289,6 +383,55 @@ int AGreedyChunk::GetTextureIndex(const EBlock Block, const FVector Normal) cons
 	}
 	case EBlock::Dirt: return 2;
 	case EBlock::Stone: return 3;
+	case EBlock::Bedrock: return 4;
+	case EBlock::Log:return 5;
+	case EBlock::Leaves:return 6;
+	case EBlock::Sand:return 7;
+	case EBlock::Gravel:return 8;
+	case EBlock::ShallowWater:return 9;
+	case EBlock::DeepWater:return 10;
 	default: return 255;
 	}
 }
+
+void AGreedyChunk::GenerateTrees(TArray<FIntVector> LocalTreePositions)
+{
+	// Define tree height
+	int TreeHeight = 5;
+
+	for (const FIntVector& Position : LocalTreePositions)
+	{
+		int X = Position.X;
+		int Y = Position.Y;
+		int Z = Position.Z;
+
+		// Place the trunk
+		for (int i = 0; i < TreeHeight; ++i)
+		{
+			if (Z + i < Size)
+			{
+				Blocks[GetBlockIndex(X, Y, Z + i)] = EBlock::Log;
+			}
+		}
+
+		// Place the leaves
+		int LeafRadius = 2; // Adjust the radius of the leaf canopy
+		for (int dz = TreeHeight - 1; dz <= TreeHeight + LeafRadius; ++dz) // Start leaves from just below the top of the trunk
+		{
+			for (int dx = -LeafRadius; dx <= LeafRadius; ++dx) // Randomize X placement within the leaf radius
+			{
+				for (int dy = -LeafRadius; dy <= LeafRadius; ++dy) // Randomize Y placement within the leaf radius
+				{
+					if (FMath::Abs(dx) + FMath::Abs(dy) <= LeafRadius) // Ensure leaf placement forms a circular shape
+					{
+						if (X + dx >= 0 && X + dx < Size && Y + dy >= 0 && Y + dy < Size && Z + dz >= 0 && Z + dz < Size)
+						{
+							Blocks[GetBlockIndex(X + dx, Y + dy, Z + dz)] = EBlock::Leaves;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+

@@ -14,37 +14,64 @@ class AChunkBase;
 UCLASS()
 class AChunkWorld final : public AActor
 {
-	GENERATED_BODY()
-	
+    GENERATED_BODY()
+
 public:
-	UPROPERTY(EditInstanceOnly, Category = "World")
-	TSubclassOf<AChunkBase> ChunkType;
+    UPROPERTY(EditInstanceOnly, Category = "World")
+    TSubclassOf<AChunkBase> ChunkType;
 
-	UPROPERTY(EditInstanceOnly, Category = "World")
-	int DrawDistance = 5;
+    UPROPERTY(EditInstanceOnly, Category = "World")
+    int DrawDistance = 5;
 
-	UPROPERTY(EditInstanceOnly, Category = "Chunk")
-	TObjectPtr<UMaterialInterface> Material;
+    UPROPERTY(EditInstanceOnly, Category = "World")
+    int WaterLevel = 20;
 
-	UPROPERTY(EditInstanceOnly, Category = "Chunk")
-	int Size = 32;
+    UPROPERTY(EditInstanceOnly, Category = "Chunk")
+    TObjectPtr<UMaterialInterface> Material;
 
-	UPROPERTY(EditInstanceOnly, Category = "Height Map")
-	EGenerationType GenerationType;
+    UPROPERTY(EditInstanceOnly, Category = "Chunk")
+    int Size = 32;
 
-	UPROPERTY(EditInstanceOnly, Category = "Height Map")
-	float Frequency = 0.03f;
+    UPROPERTY(EditInstanceOnly, Category = "Height Map")
+    EGenerationType GenerationType;
 
-	// Sets default values for this actor's properties
-	AChunkWorld();
+    UPROPERTY(EditInstanceOnly, Category = "Height Map")
+    float Frequency = 0.03f;
+
+    UPROPERTY(EditAnywhere, Category = "Materials")
+    UMaterialInstance* DesertMaterial;
+
+    UPROPERTY(EditAnywhere, Category = "Materials")
+    UMaterialInstance* SwampMaterial;
+
+    UPROPERTY(EditAnywhere, Category = "Materials")
+    UMaterialInstance* TundraMaterial;
+
+    UPROPERTY(EditAnywhere, Category = "Materials")
+    UMaterialInstance* TaigaMaterial;
+
+    UPROPERTY(EditAnywhere, Category = "Materials")
+    UMaterialInstance* PlainsMaterial;
+
+    // Sets default values for this actor's properties
+    AChunkWorld();
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+    // Called when the game starts or when spawned
+    virtual void BeginPlay() override;
+
+    //void GenerateWaterFeatures();
+    //void FillLakesAndOceans();
+    //void IdentifyDeepWaterBlocks();
+    //void ModifyGrassBlocksAdjacentToWater();
 
 private:
-	int ChunkCount;
+    int ChunkCount;
 
-	void Generate3DWorld();
-	void Generate2DWorld();
+    void Generate3DWorld();
+    void Generate2DWorld();
+
+
+    TArray<AChunkBase*> Chunks;
+
 };

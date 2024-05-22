@@ -1,43 +1,34 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-
 #include "ChunkMeshData.h"
 #include "Enums.h"
-
 #include "ChunkBase.generated.h"
-
 
 class FastNoiseLite;
 class UProceduralMeshComponent;
-
 
 UCLASS(Abstract)
 class TERRAINGENLITE1_API AChunkBase : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	// Sets default values for this actor's properties
 	AChunkBase();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Chunk")
-		int Size = 64;
+	int Size = 64;
 
-		TObjectPtr<UMaterialInterface> Material;
-		float Frequency;
-		EGenerationType GenerationType;
+	TObjectPtr<UMaterialInterface> Material;
+	float Frequency;
+	EGenerationType GenerationType;
+	int ZRepeat;
+	int DrawDistance;
 
-		UFUNCTION(BlueprintCallable, Category = "Chunk")
-		void ModifyVoxel(const FIntVector Position, const EBlock Block);
-
-		//UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		//TArray<UMaterialInterface*> Materials;
-		//TArray<FChunkMeshData> MeshPerMaterial;
-		//TArray<int> VertexCountPerMat;
+	UFUNCTION(BlueprintCallable, Category = "Chunk")
+	void ModifyVoxel(const FIntVector Position, const EBlock Block);
 
 protected:
 	// Called when the game starts or when spawned
@@ -46,9 +37,10 @@ protected:
 	virtual void Setup() PURE_VIRTUAL(AChunkBase::Setup);
 	virtual void Generate2DHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::Generate2DHeightMap);
 	virtual void Generate3DHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::Generate3DHeightMap);
+	virtual void GenerateBiomeHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::GenerateBiomeHeightMap);
 	virtual void GenerateMesh() PURE_VIRTUAL(AChunkBase::GenerateMesh);
 
-	virtual void ModifyVoxelData(const FIntVector Position, const EBlock Block) PURE_VIRTUAL(AChunkBase::RemoveVoxelData);
+	virtual void ModifyVoxelData(const FIntVector Position, const EBlock Block) PURE_VIRTUAL(AChunkBase::ModifyVoxelData);
 
 	TObjectPtr<UProceduralMeshComponent> Mesh;
 	FastNoiseLite* Noise;

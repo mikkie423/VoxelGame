@@ -26,15 +26,25 @@ protected:
 	virtual void Setup() override;
 	virtual void Generate2DHeightMap(FVector Position) override;
 	virtual void Generate3DHeightMap(FVector Position) override;
+	virtual void GenerateBiomeHeightMap(FVector Position) override;
 	virtual void GenerateMesh() override;
 	virtual void ModifyVoxelData(const FIntVector Position, const EBlock Block) override;
+
 
 private:
 	TArray<EBlock> Blocks;
 
 	void CreateQuad(FMask Mask, FIntVector AxisMask, int Width, int Height, FIntVector V1, FIntVector V2, FIntVector V3, FIntVector V4);
 	int GetBlockIndex(int X, int Y, int Z) const;
-	EBlock GetBlock(FIntVector Index) const;
+
+
 	bool CompareMask(FMask M1, FMask M2) const;
 	int GetTextureIndex(EBlock Block, FVector Normal) const;
+
+	TArray<FIntVector> TreePositions;
+	void GenerateTrees(TArray<FIntVector> LocalTreePositions);
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Chunk")
+	EBlock GetBlock(FIntVector Index) const;
 };

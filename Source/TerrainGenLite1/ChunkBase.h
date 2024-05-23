@@ -9,10 +9,16 @@
 class FastNoiseLite;
 class UProceduralMeshComponent;
 
-UCLASS(Abstract)
+UCLASS()
 class TERRAINGENLITE1_API AChunkBase : public AActor
 {
 	GENERATED_BODY()
+
+	struct FMask
+	{
+		EBlock Block;
+		int Normal;
+	};
 
 public:
 	// Sets default values for this actor's properties
@@ -23,24 +29,23 @@ public:
 
 	TObjectPtr<UMaterialInterface> Material;
 	float Frequency;
-	EGenerationType GenerationType;
 	int ZRepeat;
 	int DrawDistance;
 
 	UFUNCTION(BlueprintCallable, Category = "Chunk")
 	void ModifyVoxel(const FIntVector Position, const EBlock Block);
 
+	UFUNCTION(BlueprintCallable, Category = "Chunk")
+	EBlock GetBlock(FIntVector Index) const;
+
 protected:
 	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	void BeginPlay() ;
 
-	virtual void Setup() PURE_VIRTUAL(AChunkBase::Setup);
-	virtual void Generate2DHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::Generate2DHeightMap);
-	virtual void Generate3DHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::Generate3DHeightMap);
-	virtual void GenerateBiomeHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::GenerateBiomeHeightMap);
-	virtual void GenerateMesh() PURE_VIRTUAL(AChunkBase::GenerateMesh);
+	void Generate3DHeightMap(const FVector Position);
+	void GenerateMesh();
 
-	virtual void ModifyVoxelData(const FIntVector Position, const EBlock Block) PURE_VIRTUAL(AChunkBase::ModifyVoxelData);
+	void ModifyVoxelData(const FIntVector Position, const EBlock Block);
 
 	TObjectPtr<UProceduralMeshComponent> Mesh;
 	FastNoiseLite* Noise;
@@ -51,4 +56,16 @@ private:
 	void ApplyMesh() const;
 	void ClearMesh();
 	void GenerateHeightMap();
+
+	TArray<EBlock> Blocks;
+
+	void CreateQuad(FMask Mask, FIntVector AxisMask, int Width, int Height, FIntVector V1, FIntVector V2, FIntVector V3, FIntVector V4);
+	int GetBlockIndex(int X, int Y, int Z) const;
+
+
+	bool CompareMask(FMask M1, FMask M2) const;
+	int GetTextureIndex(EBlock Block, FVector Normal) const;
+
+	TArray<FIntVector> TreePositions;
+	void GenerateTrees(TArray<FIntVector> LocalTreePositions);
 };

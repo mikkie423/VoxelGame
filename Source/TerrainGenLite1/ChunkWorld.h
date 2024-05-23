@@ -33,9 +33,6 @@ public:
     int Size = 32;
 
     UPROPERTY(EditInstanceOnly, Category = "Height Map")
-    EGenerationType GenerationType;
-
-    UPROPERTY(EditInstanceOnly, Category = "Height Map")
     float Frequency = 0.03f;
 
     UPROPERTY(EditAnywhere, Category = "Materials")
@@ -60,17 +57,10 @@ protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;
 
-    //void GenerateWaterFeatures();
-    //void FillLakesAndOceans();
-    //void IdentifyDeepWaterBlocks();
-    //void ModifyGrassBlocksAdjacentToWater();
-
 private:
     int ChunkCount;
 
     void Generate3DWorld();
-    void Generate2DWorld();
-
 
     TArray<AChunkBase*> Chunks;
 

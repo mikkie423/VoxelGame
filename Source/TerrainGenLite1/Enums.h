@@ -13,13 +13,6 @@ enum class EBlock : uint8
 };
 
 UENUM(BlueprintType)
-enum class EGenerationType : uint8
-{
-    GT_3D UMETA(DisplayName = "3D"),
-    GT_2D UMETA(DisplayName = "2D"),
-};
-
-UENUM(BlueprintType)
 enum class EBiome : uint8
 {
     Null,

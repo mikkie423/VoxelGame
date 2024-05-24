@@ -35,21 +35,6 @@ public:
     UPROPERTY(EditInstanceOnly, Category = "Height Map")
     float Frequency = 0.03f;
 
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* DesertMaterial;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* SwampMaterial;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* TundraMaterial;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* TaigaMaterial;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* PlainsMaterial;
-
     // Sets default values for this actor's properties
     AChunkWorld();
 

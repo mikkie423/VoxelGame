@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Enums.h"
+#include "BlockData.h"
 #include "ChunkMeshData.generated.h"
 
 USTRUCT()
@@ -15,7 +16,7 @@ public:
 	TArray<FVector> Normals;
 	TArray<FColor> Colors;
 	TArray<FVector2D> UV0;
-	TArray<EBlock> BlockTypes; // Store block types for each vertex
+	TArray<FBlockData> BlockData;
 
 	void Clear();
 };
@@ -27,5 +28,5 @@ inline void FChunkMeshData::Clear()
 	Normals.Empty();
 	Colors.Empty();
 	UV0.Empty();
-	BlockTypes.Empty();
+	BlockData.Empty();
 }

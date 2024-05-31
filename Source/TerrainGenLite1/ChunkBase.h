@@ -4,22 +4,19 @@
 #include "GameFramework/Actor.h"
 #include "ChunkMeshData.h"
 #include "Enums.h"
+#include "BlockData.h"
 #include "ChunkBase.generated.h"
+
+
 
 class FastNoiseLite;
 class UProceduralMeshComponent;
 
 UCLASS()
-class TERRAINGENLITE1_API AChunkBase : public AActor
+class TERRAINGENLITE1_API AChunkBase: public AActor
 {
 	GENERATED_BODY()
-
-	struct FMask
-	{
-		EBlock Block;
-		int Normal;
-	};
-
+	
 public:
 	// Sets default values for this actor's properties
 	AChunkBase();
@@ -27,7 +24,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Chunk")
 	int Size = 64;
 
-	TObjectPtr<UMaterialInterface> Material;
+	TObjectPtr<UMaterialInterface> LandMaterial;
+	TObjectPtr<UMaterialInterface> LiquidMaterial;
 	float Frequency;
 	int ZRepeat;
 	int DrawDistance;
@@ -36,14 +34,16 @@ public:
 	void ModifyVoxel(const FIntVector Position, const EBlock Block);
 
 	UFUNCTION(BlueprintCallable, Category = "Chunk")
-	EBlock GetBlock(FIntVector Index) const;
+	EBlock GetBlock(const FIntVector Index) const;
+
+	void GenerateMesh();
+
 
 protected:
 	// Called when the game starts or when spawned
 	void BeginPlay() ;
 
 	void Generate3DHeightMap(const FVector Position);
-	void GenerateMesh();
 
 	void ModifyVoxelData(const FIntVector Position, const EBlock Block);
 
@@ -57,9 +57,10 @@ private:
 	void ClearMesh();
 	void GenerateHeightMap();
 
-	TArray<EBlock> Blocks;
+	TArray<FBlockData> Blocks;
 
-	void CreateQuad(FMask Mask, FIntVector AxisMask, int Width, int Height, FIntVector V1, FIntVector V2, FIntVector V3, FIntVector V4);
+	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4 );
+
 	int GetBlockIndex(int X, int Y, int Z) const;
 
 

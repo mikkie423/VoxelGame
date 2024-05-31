@@ -27,28 +27,16 @@ public:
     int WaterLevel = 20;
 
     UPROPERTY(EditInstanceOnly, Category = "Chunk")
-    TObjectPtr<UMaterialInterface> Material;
+    TObjectPtr<UMaterialInterface> LandMaterial;
+
+    UPROPERTY(EditInstanceOnly, Category = "Chunk")
+    TObjectPtr<UMaterialInterface> LiquidMaterial;
 
     UPROPERTY(EditInstanceOnly, Category = "Chunk")
     int Size = 32;
 
     UPROPERTY(EditInstanceOnly, Category = "Height Map")
     float Frequency = 0.03f;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* DesertMaterial;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* SwampMaterial;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* TundraMaterial;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* TaigaMaterial;
-
-    UPROPERTY(EditAnywhere, Category = "Materials")
-    UMaterialInstance* PlainsMaterial;
 
     // Sets default values for this actor's properties
     AChunkWorld();

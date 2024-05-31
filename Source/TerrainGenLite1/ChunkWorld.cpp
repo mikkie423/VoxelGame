@@ -49,7 +49,8 @@ void AChunkWorld::Generate3DWorld()
 					);
 
 					chunk->Frequency = Frequency;
-					chunk->Material = Material;
+					chunk->LandMaterial = LandMaterial;
+					chunk->LiquidMaterial = LiquidMaterial;
 					chunk->Size = Size;
 					chunk->DrawDistance = DrawDistance;
 					chunk->ZRepeat = z;

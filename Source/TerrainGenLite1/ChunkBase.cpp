@@ -15,8 +15,8 @@ AChunkBase::AChunkBase()
 	Mesh = CreateDefaultSubobject<UProceduralMeshComponent>("Mesh");
 	Noise = new FastNoiseLite();
 
-	//Mesh Settings
-	Mesh->SetCastShadow(false);
+	////Mesh Settings
+	//Mesh->SetCastShadow(false); 
 
 	//Set Mesh as root
 	SetRootComponent(Mesh);

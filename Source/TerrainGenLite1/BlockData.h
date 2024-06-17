@@ -16,7 +16,6 @@ struct FMask
     int Normal;
 
     FMask()
-
         : BlockType(EBlock::Null), Normal(0) {}
 
     FMask(EBlock InBlockType, int InNormal)
@@ -34,16 +33,34 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
     bool bIsSolid;
-    
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
-    bool bHasGravity;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
     int TextureIndex;
 
     FBlockData()
-        : Mask(), bIsSolid(true),bHasGravity(false), TextureIndex(-1) {}
+        : Mask(), bIsSolid(true), TextureIndex(-1) {}
 
-    FBlockData(const FMask& InMask, bool InSolid, bool InGravity, bool InTransparent, int InTextureIndex)
-        : Mask(InMask), bIsSolid(InSolid), bHasGravity(InGravity), TextureIndex(InTextureIndex) {}
+    FBlockData(const FMask& InMask, bool InSolid, int InTextureIndex)
+        : Mask(InMask), bIsSolid(InSolid), TextureIndex(InTextureIndex) {}
+};
+
+
+
+USTRUCT(BlueprintType)
+struct FWaterBlockData : public FBlockData
+{
+    GENERATED_BODY()
+
+public:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
+    float WaterOpacity;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
+    bool bHasFlow;
+
+    FWaterBlockData()
+        : FBlockData(), WaterOpacity(0.5f), bHasFlow(false) {}
+
+    FWaterBlockData(const FMask& InMask, bool InSolid, int InTextureIndex, float InWaterOpacity, bool InHasFlow)
+        : FBlockData(InMask, InSolid, InTextureIndex), WaterOpacity(InWaterOpacity), bHasFlow(InHasFlow) {}
 };

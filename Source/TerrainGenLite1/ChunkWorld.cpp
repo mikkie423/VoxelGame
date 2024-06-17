@@ -34,8 +34,6 @@ void AChunkWorld::Generate3DWorld()
 		{
 			for (int z = -DrawDistance; z <= DrawDistance; ++z)
 			{
-					UE_LOG(LogTemp, Warning, TEXT("Generate 3D World z part: %i"), z);
-
 					auto transform = FTransform(
 						FRotator::ZeroRotator,
 						FVector(x * Size * 100, y * Size * 100, z * Size * 100),

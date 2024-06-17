@@ -4,24 +4,24 @@
 #include "ChunkBase.h"
 
 #include "FastNoiseLite.h"
+#include "CollisionQueryParams.h"
+#include "Engine/CollisionProfile.h"
+
 #include "ProceduralMeshComponent.h"
 
 // Sets default values
 AChunkBase::AChunkBase()
+    : LandMesh(CreateDefaultSubobject<UProceduralMeshComponent>("LandMesh")),
+    LiquidMesh(CreateDefaultSubobject<UProceduralMeshComponent>("LiquidMesh")),
+    Noise(MakeUnique<FastNoiseLite>())
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = false;  // Set the tick behavior
 
-	Mesh = CreateDefaultSubobject<UProceduralMeshComponent>("Mesh");
-	Noise = new FastNoiseLite();
-
-	////Mesh Settings
-	//Mesh->SetCastShadow(false); 
-
-	//Set Mesh as root
-	SetRootComponent(Mesh);
-
+    SetRootComponent(LandMesh);
+    LiquidMesh->SetupAttachment(LandMesh);
 }
+
+
 
 // Called when the game starts or when spawned
 void AChunkBase::BeginPlay()
@@ -35,24 +35,83 @@ void AChunkBase::BeginPlay()
 	// Initialize Blocks
 	Blocks.SetNum(Size * Size * Size);
 
-	GenerateHeightMap();
-
-	//ClearMesh();
-
-	GenerateMesh();
-
-	UE_LOG(LogTemp, Warning, TEXT("Vertex Count : %d"), VertexCount);
-
-	ApplyMesh();
+    GenerateChunk();
 
 }
 
-void AChunkBase::GenerateHeightMap()
+void AChunkBase::GenerateChunk()
 {
-	Generate3DHeightMap(GetActorLocation() / 100);
+    //Generate Land
+    GenerateHeightMap(GetActorLocation() / 100);
+    GenerateMesh(true);
+    UE_LOG(LogTemp, Warning, TEXT("Land Vertex Count : %d"), LandVertexCount);
+    ApplyMesh(LandMesh, 0, true);
+
+    //Generate Liquid
+    GenerateWater(GetActorLocation() / 100);
+    GenerateMesh(false);
+    UE_LOG(LogTemp, Warning, TEXT("Liquid Vertex Count : %d"), LiquidVertexCount);
+    ApplyMesh(LiquidMesh, 1, false);
 }
 
-void AChunkBase::Generate3DHeightMap(const FVector Position)
+void AChunkBase::GenerateWater(const FVector Position)
+{
+    for (int x = 0; x < Size; ++x)
+    {
+        for (int y = 0; y < Size; ++y)
+        {
+            bool foundWaterSurface = false;  // Track if we've found the water surface for this column
+            int waterDepth = 0;  // Track the depth of the current water column
+
+            for (int z = 0; z < Size; ++z)
+            {
+                const double Zpos = z + Position.Z;
+
+                if (Zpos < 15)
+                {
+                    // Check if the block is air and within certain Z range
+                    if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Air && z < WaterLevel)
+                    {
+                        // Log the water blocks
+                        UE_LOG(LogTemp, Warning, TEXT("Water Block at X:%d, Y:%d, Z:%d"), x, y, z);
+
+                        if (!foundWaterSurface)
+                        {
+                            foundWaterSurface = true;  // Mark that we found the surface for this column
+                        }
+
+                        waterDepth++;  // Increment water depth
+
+                        if (waterDepth >= 5)
+                        {
+                            Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::DeepWater;  // Set deep water type
+                        }
+                        else
+                        {
+                            Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::ShallowWater;  // Set shallow water type
+                        }
+
+                        Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
+                    }
+                    else
+                    {
+                        foundWaterSurface = false;  // Reset if we encounter a non-water block
+                        waterDepth = 0;  // Reset water depth
+                    }
+                }
+                else
+                {
+                    foundWaterSurface = false;  // Reset if we are above the water threshold
+                    waterDepth = 0;  // Reset water depth
+                }
+            }
+        }
+    }
+}
+
+
+
+void AChunkBase::GenerateHeightMap(const FVector Position)
 {
     UE_LOG(LogTemp, Warning, TEXT("Generating 3D Height Map"));
 
@@ -60,87 +119,65 @@ void AChunkBase::Generate3DHeightMap(const FVector Position)
     {
         for (int y = 0; y < Size; ++y)
         {
-            // Calculate surface height for this column
             const float Xpos = x + Position.X;
             const float Ypos = y + Position.Y;
             const float SurfaceHeight = FMath::Clamp(FMath::RoundToInt((Noise->GetNoise(Xpos, Ypos) + 1) * Size / 2), 0, Size);
-
 
             for (int z = 0; z < Size; ++z)
             {
                 const double Zpos = z + Position.Z;
 
-                // Calculate noise value for cave generation
                 const auto NoiseValue = Noise->GetNoise(x + Position.X, y + Position.Y, Zpos);
                 int BaseZ = DrawDistance - (DrawDistance * 2);
-
-
 
                 if (z == 0 && ZRepeat == BaseZ)
                 {
                     Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Bedrock;
                     Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-
                 }
-
-                // Apply cave generation logic based on noise value
                 else if (NoiseValue >= 0 && Zpos <= SurfaceHeight - 7)
                 {
                     Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Air;
-                    Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-
+                    Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
                 }
                 else
                 {
-                    // Adjust block types based on surface height
                     if (Zpos < SurfaceHeight - 3)
                     {
                         Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Stone;
                         Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-
                     }
                     else if (Zpos < SurfaceHeight - 1)
                     {
                         Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Dirt;
                         Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-
                     }
                     else if (Zpos == SurfaceHeight - 1)
                     {
                         int randNum = FMath::FRandRange(1, 51);
-                        //UE_LOG(LogTemp, Warning, TEXT("RandNum = %i"), randNum);
                         if (randNum == 1 && Zpos > 15)
                         {
                             Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Dirt;
                             Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-
                             TreePositions.Add(FIntVector(x, y, z));
                         }
                         else
                         {
                             Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Grass;
                             Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-
                         }
                     }
                     else
                     {
                         Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Air;
-                        Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-
+                        Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
                     }
                     if (Zpos < 15)
                     {
-                        if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Air)
-                        {
-                            Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::ShallowWater;
-                            Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
-                        }
-                        if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass && Zpos > 10)
+                        if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass || Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Dirt && Zpos > 10)
                         {
                             Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Sand;
                             Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-
                         }
                         else if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Dirt || Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass)
                         {
@@ -155,6 +192,8 @@ void AChunkBase::Generate3DHeightMap(const FVector Position)
     GenerateTrees(TreePositions);
 }
 
+
+
 /**
  * @brief Generates a mesh using the greedy meshing algorithm.
  *
@@ -162,8 +201,10 @@ void AChunkBase::Generate3DHeightMap(const FVector Position)
  * quads for the visible faces of the blocks. It reduces the number of polygons
  * by merging adjacent blocks that share the same properties.
  */
-void AChunkBase::GenerateMesh()
+void AChunkBase::GenerateMesh(bool isLandMesh)
 {
+    FChunkMeshData& MeshData = isLandMesh ? LandMeshData : LiquidMeshData;
+
     for (int Axis = 0; Axis < 3; ++Axis)
     {
         const int Axis1 = (Axis + 1) % 3;
@@ -182,7 +223,6 @@ void AChunkBase::GenerateMesh()
         AxisMask[Axis] = 1;
 
         TArray<FBlockData> BlockData;
-
         BlockData.SetNum(Axis1Limit * Axis2Limit);
 
         for (ChunkItr[Axis] = -1; ChunkItr[Axis] < MainAxisLimit;)
@@ -193,27 +233,17 @@ void AChunkBase::GenerateMesh()
             {
                 for (ChunkItr[Axis1] = 0; ChunkItr[Axis1] < Axis1Limit; ++ChunkItr[Axis1])
                 {
-                    // Get the current block and the adjacent block along the current axis
                     const auto CurrentBlock = GetBlock(ChunkItr);
                     const auto CompareBlock = GetBlock(ChunkItr + AxisMask);
 
-                    // Determine block types
-                    const bool CurrentBlockOpaque = CurrentBlock != EBlock::Air && CurrentBlock != EBlock::ShallowWater;
-                    const bool CompareBlockOpaque = CompareBlock != EBlock::Air && CurrentBlock != EBlock::ShallowWater;
+                    const bool CurrentBlockOpaque = CurrentBlock != EBlock::Air;
+                    const bool CompareBlockOpaque = CompareBlock != EBlock::Air;
 
-                    const bool CurrentBlockIsLiquid = CurrentBlock == EBlock::ShallowWater;
-                    const bool CompareBlockIsLiquid = CompareBlock == EBlock::ShallowWater;
-
-                    // Populate the mask based on the block type comparison
-                    if (CurrentBlockOpaque == CompareBlockOpaque && CurrentBlockIsLiquid == CompareBlockIsLiquid)
+                    if (CurrentBlockOpaque == CompareBlockOpaque)
                     {
                         BlockData[N++].Mask = FMask{ EBlock::Null, 0 };
                     }
                     else if (CurrentBlockOpaque)
-                    {
-                        BlockData[N++].Mask = FMask{ CurrentBlock, 1 };
-                    }
-                    else if (CurrentBlockIsLiquid)
                     {
                         BlockData[N++].Mask = FMask{ CurrentBlock, 1 };
                     }
@@ -239,9 +269,7 @@ void AChunkBase::GenerateMesh()
 
                         int Width;
 
-                        for (Width = 1; i + Width < Axis1Limit && CompareMask(BlockData[N + Width].Mask, CurrentMask.Mask); ++Width)
-                        {
-                        }
+                        for (Width = 1; i + Width < Axis1Limit && CompareMask(BlockData[N + Width].Mask, CurrentMask.Mask); ++Width);
 
                         int Height;
                         bool Done = false;
@@ -270,7 +298,8 @@ void AChunkBase::GenerateMesh()
                             ChunkItr,
                             ChunkItr + DeltaAxis1,
                             ChunkItr + DeltaAxis2,
-                            ChunkItr + DeltaAxis1 + DeltaAxis2
+                            ChunkItr + DeltaAxis1 + DeltaAxis2,
+                            MeshData
                         );
 
                         DeltaAxis1 = FIntVector::ZeroValue;
@@ -300,8 +329,6 @@ void AChunkBase::GenerateMesh()
 
 
 
-
-
 /**
  * @brief Creates a quad and adds it to the mesh data.
  *
@@ -325,10 +352,11 @@ void AChunkBase::CreateQuad(
     const FIntVector V1,
     const FIntVector V2,
     const FIntVector V3,
-    const FIntVector V4
+    const FIntVector V4,
+    FChunkMeshData& MeshData  // Pass by reference to modify the original mesh data
 )
 {
-    if (BlockData.Mask.BlockType == EBlock::Air || BlockData.Mask.BlockType == EBlock::Null) // Skip non-solid blocks
+    if (BlockData.Mask.BlockType == EBlock::Air || BlockData.Mask.BlockType == EBlock::Null)
     {
         return;
     }
@@ -344,12 +372,12 @@ void AChunkBase::CreateQuad(
         });
 
     MeshData.Triangles.Append({
-        VertexCount,
-        VertexCount + 2 + BlockData.Mask.Normal,
-        VertexCount + 2 - BlockData.Mask.Normal,
-        VertexCount + 3,
-        VertexCount + 1 - BlockData.Mask.Normal,
-        VertexCount + 1 + BlockData.Mask.Normal
+        MeshData.Vertices.Num() - 4,
+        MeshData.Vertices.Num() - 2 + BlockData.Mask.Normal,
+        MeshData.Vertices.Num() - 2 - BlockData.Mask.Normal,
+        MeshData.Vertices.Num() - 1,
+        MeshData.Vertices.Num() - 3 - BlockData.Mask.Normal,
+        MeshData.Vertices.Num() - 3 + BlockData.Mask.Normal
         });
 
     MeshData.Normals.Append({
@@ -372,7 +400,7 @@ void AChunkBase::CreateQuad(
             FVector2D(Width, Height),
             FVector2D(0, Height),
             FVector2D(Width, 0),
-            FVector2D(0, 0),
+            FVector2D(0, 0)
             });
     }
     else
@@ -381,7 +409,7 @@ void AChunkBase::CreateQuad(
             FVector2D(Height, Width),
             FVector2D(Height, 0),
             FVector2D(0, Width),
-            FVector2D(0, 0),
+            FVector2D(0, 0)
             });
     }
 
@@ -392,41 +420,80 @@ void AChunkBase::CreateQuad(
         BlockData
         });
 
-    VertexCount += 4;
 }
 
-void AChunkBase::ApplyMesh() const
-{
-    bool HasSolidBlocks = false;
 
-    // Check if any solid blocks exist
-    for (const FBlockData& BlockData : MeshData.BlockData)
+
+
+
+void AChunkBase::ApplyMesh(UProceduralMeshComponent* Mesh, int SectionIndex, bool isLandMesh) const
+{
+    if (isLandMesh)
     {
-        if (BlockData.bIsSolid)
-        {
-            HasSolidBlocks = true;
-            break;
-        }
+        // Create mesh section
+        Mesh->CreateMeshSection(
+            SectionIndex,
+            LandMeshData.Vertices,
+            LandMeshData.Triangles,
+            LandMeshData.Normals,
+            LandMeshData.UV0,
+            LandMeshData.Colors,
+            TArray<FProcMeshTangent>(),
+            true  // Create collision
+        );
     }
+    else
+    {
+        // Create mesh section
+        Mesh->CreateMeshSection(
+            SectionIndex,
+            LiquidMeshData.Vertices,
+            LiquidMeshData.Triangles,
+            LiquidMeshData.Normals,
+            LiquidMeshData.UV0,
+            LiquidMeshData.Colors,
+            TArray<FProcMeshTangent>(),
+            true  // Create collision
+        );
+    }
+   
+    LandMesh->SetMaterial(0, LandMaterial);
+    LiquidMesh->SetMaterial(1, LiquidMaterial);
 
-    // Create mesh section with appropriate collidable parameter
-    Mesh->SetMaterial(0, LandMaterial);
-    Mesh->CreateMeshSection(
-        0,
-        MeshData.Vertices,
-        MeshData.Triangles,
-        MeshData.Normals,
-        MeshData.UV0,
-        MeshData.Colors,
-        TArray<FProcMeshTangent>(),
-        HasSolidBlocks  // Set collidable parameter based on presence of solid blocks
-    );
+
+    // Set collision settings for the mesh section
+    if (SectionIndex == 1)  // Assuming section index 1 is your water mesh
+    {
+        // Set collision profile for water mesh section
+        LiquidMesh->SetCollisionProfileName(TEXT("WaterMesh"));  // Set to the name of your water collision profile
+        LiquidMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);  // Enable collision detection and physical response
+        LiquidMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);  // Respond to all collision channels with overlap
+        LiquidMesh->SetGenerateOverlapEvents(true);  // Enable overlap events for water mesh
+    }
+    else
+    {
+        // Configure collision profile and response for other sections as needed
+        LandMesh->SetCollisionProfileName(TEXT("LandMesh"));  // Example: Set default collision profile for other sections
+        LandMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);  // Enable collision detection and physical response
+        LandMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);  // Example: Respond to all channels with block
+        LandMesh->SetGenerateOverlapEvents(false);  // Disable overlap events for non-water sections
+    }
 }
 
-void AChunkBase::ClearMesh()
+
+void AChunkBase::ClearMesh(bool isLandMesh)
 {
-    VertexCount = 0;
-    MeshData.Clear();
+    if (isLandMesh)
+    {
+        LandVertexCount = 0;
+        LandMeshData.Clear();
+    }
+    else
+    {
+        LiquidVertexCount = 0;
+        LiquidMeshData.Clear();
+    }
+    
 }
 
 void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
@@ -437,9 +504,28 @@ void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
     if (Blocks[Index].Mask.BlockType != Block)
     {
         ModifyVoxelData(Position, Block);
-        ClearMesh();
-        GenerateMesh();
-        ApplyMesh();
+
+        if (Blocks[Index].Mask.BlockType == EBlock::ShallowWater || Blocks[Index].Mask.BlockType == EBlock::DeepWater)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Water type block edited"));
+
+            ClearMesh(false);
+            GenerateMesh(false);
+            ApplyMesh(LiquidMesh, 1, false);
+            UE_LOG(LogTemp, Warning, TEXT("LiquidMesh stuff adjusted"));
+
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Land type block edited"));
+
+            ClearMesh(true);
+            GenerateMesh(true);
+            ApplyMesh(LandMesh, 0, true);
+            UE_LOG(LogTemp, Warning, TEXT("LiquidMesh stuff adjusted"));
+
+        }
+        
     }
 }
 

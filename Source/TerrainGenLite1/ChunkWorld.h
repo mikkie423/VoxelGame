@@ -23,8 +23,8 @@ public:
     UPROPERTY(EditInstanceOnly, Category = "World")
     int DrawDistance = 5;
 
-    UPROPERTY(EditInstanceOnly, Category = "World")
-    int WaterLevel = 20;
+   // UPROPERTY(EditInstanceOnly, Category = "World")
+   // int WaterLevel = 20;
 
     UPROPERTY(EditInstanceOnly, Category = "Chunk")
     TObjectPtr<UMaterialInterface> LandMaterial;

@@ -5,8 +5,12 @@
 #include "ChunkMeshData.h"
 #include "Enums.h"
 #include "BlockData.h"
+#include "FastNoiseLite.h"
 #include "ChunkBase.generated.h"
 
+// Define your custom channels if not already defined (usually in a header file)
+#define ECC_LandMesh ECC_GameTraceChannel2
+#define ECC_WaterMesh ECC_GameTraceChannel3
 
 
 class FastNoiseLite;
@@ -30,36 +34,47 @@ public:
 	int ZRepeat;
 	int DrawDistance;
 
+	UPROPERTY(EditInstanceOnly, Category = "World")
+	int WaterLevel = 20;
+
 	UFUNCTION(BlueprintCallable, Category = "Chunk")
 	void ModifyVoxel(const FIntVector Position, const EBlock Block);
 
 	UFUNCTION(BlueprintCallable, Category = "Chunk")
 	EBlock GetBlock(const FIntVector Index) const;
 
-	void GenerateMesh();
+	void GenerateMesh(bool isLandMesh);
 
 
 protected:
 	// Called when the game starts or when spawned
 	void BeginPlay() ;
 
-	void Generate3DHeightMap(const FVector Position);
+	void GenerateHeightMap(const FVector Position);
+	void GenerateWater(const FVector Position);
+
 
 	void ModifyVoxelData(const FIntVector Position, const EBlock Block);
 
-	TObjectPtr<UProceduralMeshComponent> Mesh;
-	FastNoiseLite* Noise;
-	FChunkMeshData MeshData;
-	int VertexCount = 0;
+	TObjectPtr<UProceduralMeshComponent> LandMesh;
+	TObjectPtr<UProceduralMeshComponent> LiquidMesh;
+	TUniquePtr<FastNoiseLite> Noise;
+	FChunkMeshData LandMeshData;
+	FChunkMeshData LiquidMeshData;
+	int LandVertexCount = 0;
+	int LiquidVertexCount = 0;
+
+	FCollisionResponseContainer LandMeshResponse;
+	FCollisionResponseContainer WaterMeshResponse;
 
 private:
-	void ApplyMesh() const;
-	void ClearMesh();
-	void GenerateHeightMap();
+	void ApplyMesh(UProceduralMeshComponent* Mesh, int i, bool isLandMesh) const;
+	void ClearMesh(bool isLandMesh);
+	void GenerateChunk();
 
 	TArray<FBlockData> Blocks;
 
-	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4 );
+	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4, FChunkMeshData& MeshData);
 
 	int GetBlockIndex(int X, int Y, int Z) const;
 
@@ -69,4 +84,6 @@ private:
 
 	TArray<FIntVector> TreePositions;
 	void GenerateTrees(TArray<FIntVector> LocalTreePositions);
+
+	//void LogCollisionSettings();
 };

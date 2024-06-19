@@ -8,7 +8,7 @@
 #include "FastNoiseLite.h"
 #include "ChunkBase.generated.h"
 
-// Define your custom channels if not already defined (usually in a header file)
+// Define  custom channels
 #define ECC_LandMesh ECC_GameTraceChannel2
 #define ECC_WaterMesh ECC_GameTraceChannel3
 
@@ -26,7 +26,7 @@ public:
 	AChunkBase();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Chunk")
-	int Size = 64;
+	int Size = 32;
 
 	TObjectPtr<UMaterialInterface> LandMaterial;
 	TObjectPtr<UMaterialInterface> LiquidMaterial;
@@ -68,13 +68,13 @@ protected:
 	FCollisionResponseContainer WaterMeshResponse;
 
 private:
-	void ApplyMesh(UProceduralMeshComponent* Mesh, int i, bool isLandMesh) const;
+	void ApplyMesh(bool isLandMesh) const;
 	void ClearMesh(bool isLandMesh);
 	void GenerateChunk();
 
 	TArray<FBlockData> Blocks;
 
-	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4, FChunkMeshData& MeshData);
+	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4, FChunkMeshData& MeshData, int& VertexCount);
 
 	int GetBlockIndex(int X, int Y, int Z) const;
 
@@ -85,5 +85,6 @@ private:
 	TArray<FIntVector> TreePositions;
 	void GenerateTrees(TArray<FIntVector> LocalTreePositions);
 
-	//void LogCollisionSettings();
+	void PrintMeshData(bool isLandMesh) const;
+
 };

@@ -41,9 +41,21 @@ public:
 	void ModifyVoxel(const FIntVector Position, const EBlock Block);
 
 	UFUNCTION(BlueprintCallable, Category = "Chunk")
-	EBlock GetBlock(const FIntVector Index) const;
+	EBlock GetBlockType(const FIntVector Index) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Chunk")
+	FBlockData GetBlockData(const FIntVector Index) const;
+
+	int GetBlockIndex(int X, int Y, int Z) const;
 
 	void GenerateMesh(bool isLandMesh);
+
+	// Sets the biome information for a specific block
+	void SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Humidity);
+
+	TArray<FBlockData> Blocks;
+
+	void RegenerateChunkBlockTextures();
 
 
 protected:
@@ -51,7 +63,8 @@ protected:
 	void BeginPlay() ;
 
 	void GenerateHeightMap(const FVector Position);
-	void GenerateWater(const FVector Position);
+	void GenerateWaterAndHumidity(const FVector Position);
+
 
 
 	void ModifyVoxelData(const FIntVector Position, const EBlock Block);
@@ -72,11 +85,9 @@ private:
 	void ClearMesh(bool isLandMesh);
 	void GenerateChunk();
 
-	TArray<FBlockData> Blocks;
 
 	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4, FChunkMeshData& MeshData, int& VertexCount);
 
-	int GetBlockIndex(int X, int Y, int Z) const;
 
 
 	bool CompareMask(FMask M1, FMask M2) const;

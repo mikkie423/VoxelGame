@@ -15,6 +15,7 @@ struct FMask
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
     int Normal;
 
+
     FMask()
         : BlockType(EBlock::Null), Normal(0) {}
 
@@ -37,30 +38,36 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
     int TextureIndex;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
+    EBiome BiomeType;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
+    float Humidity;
+
     FBlockData()
-        : Mask(), bIsSolid(true), TextureIndex(-1) {}
+        : Mask(), bIsSolid(true), TextureIndex(-1), BiomeType(EBiome::Null), Humidity(0.5) {}
 
-    FBlockData(const FMask& InMask, bool InSolid, int InTextureIndex)
-        : Mask(InMask), bIsSolid(InSolid), TextureIndex(InTextureIndex) {}
+    FBlockData(const FMask& InMask, bool InSolid, int InTextureIndex, EBiome InBiomeType, int InHumidity)
+        : Mask(InMask), bIsSolid(InSolid), TextureIndex(InTextureIndex), BiomeType(InBiomeType), Humidity(InHumidity) {}
 };
 
 
 
-USTRUCT(BlueprintType)
-struct FWaterBlockData : public FBlockData
-{
-    GENERATED_BODY()
-
-public:
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
-    float WaterOpacity;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
-    bool bHasFlow;
-
-    FWaterBlockData()
-        : FBlockData(), WaterOpacity(0.5f), bHasFlow(false) {}
-
-    FWaterBlockData(const FMask& InMask, bool InSolid, int InTextureIndex, float InWaterOpacity, bool InHasFlow)
-        : FBlockData(InMask, InSolid, InTextureIndex), WaterOpacity(InWaterOpacity), bHasFlow(InHasFlow) {}
-};
+//USTRUCT(BlueprintType)
+//struct FWaterBlockData : public FBlockData
+//{
+//    GENERATED_BODY()
+//
+//public:
+//    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
+//    float WaterOpacity;
+//
+//    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
+//    bool bHasFlow;
+//
+//    FWaterBlockData()
+//        : FBlockData(), WaterOpacity(0.5f), bHasFlow(false) {}
+//
+//    FWaterBlockData(const FMask& InMask, bool InSolid, int InTextureIndex, EBiome InBiomeType, float InWaterOpacity, bool InHasFlow)
+//        : FBlockData(InMask, InSolid, InTextureIndex, InBiomeType), WaterOpacity(InWaterOpacity), bHasFlow(InHasFlow) {}
+//};

@@ -269,6 +269,8 @@ void AChunkBase::GenerateHeightMap(const FVector Position)
  */
 void AChunkBase::GenerateMesh(bool isLandMesh)
 {
+	UE_LOG(LogTemp, Warning, TEXT("Generating Mesh"));
+
 	for (int Axis = 0; Axis < 3; ++Axis)
 	{
 		const int Axis1 = (Axis + 1) % 3;
@@ -305,28 +307,46 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 					const auto CurrentBlock = GetBlockType(ChunkItr);
 					const auto CompareBlock = GetBlockType(ChunkItr + AxisMask);
 
+					// Determine if the current and compare blocks are opaque
 					const bool CurrentBlockIsOpaque = CurrentBlock != EBlock::Air && CurrentBlock != EBlock::ShallowWater && CurrentBlock != EBlock::DeepWater;
 					const bool CompareBlockIsOpaque = CompareBlock != EBlock::Air && CompareBlock != EBlock::ShallowWater && CompareBlock != EBlock::DeepWater;
 
+					// Determine if the current and compare blocks are liquid
 					const bool CurrentBlockIsLiquid = CurrentBlock == EBlock::ShallowWater || CurrentBlock == EBlock::DeepWater;
 					const bool CompareBlockIsLiquid = CompareBlock == EBlock::ShallowWater || CompareBlock == EBlock::DeepWater;
 
-					if (CurrentBlockIsOpaque == CompareBlockIsOpaque && CurrentBlockIsLiquid == CompareBlockIsLiquid)
+					if (CurrentBlockIsOpaque && CompareBlockIsLiquid)
 					{
+						// Current block is land, compare block is water: prioritize land
+						BlockData[N++].Mask = FMask{ CurrentBlock, 1 };
+					}
+					else if (CurrentBlockIsLiquid && CompareBlockIsOpaque)
+					{
+						// Current block is water, compare block is land: prioritize land
+						BlockData[N++].Mask = FMask{ CompareBlock, -1 };
+					}
+					else if (CurrentBlockIsOpaque == CompareBlockIsOpaque && CurrentBlockIsLiquid == CompareBlockIsLiquid)
+					{
+						// Both blocks are of the same type (either both land or both water)
 						BlockData[N++].Mask = FMask{ EBlock::Null, 0 };
 					}
 					else if (CurrentBlockIsOpaque)
 					{
+						// Only current block is opaque
 						BlockData[N++].Mask = FMask{ CurrentBlock, 1 };
 					}
 					else if (CurrentBlockIsLiquid)
 					{
+						// Only current block is liquid
 						BlockData[N++].Mask = FMask{ CurrentBlock, 1 };
 					}
 					else
 					{
+						// Default case: use the compare block type
 						BlockData[N++].Mask = FMask{ CompareBlock, -1 };
 					}
+
+
 					/*
 					*
 					* End Point
@@ -386,7 +406,12 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 						bool isWaterBlock = CurrentMask.Mask.BlockType == EBlock::ShallowWater || CurrentMask.Mask.BlockType == EBlock::DeepWater;
 
 						// Check if the mesh type matches the block type
-						if ((isWaterBlock && !isLandMesh) || (!isWaterBlock && isLandMesh))
+						if (isWaterBlock && isLandMesh)
+						{
+							UE_LOG(LogTemp, Warning, TEXT("Dont make quad for isWaterBlock and isLandMesh"));
+
+						}
+						else
 						{
 							CreateQuad(
 								CurrentMask,

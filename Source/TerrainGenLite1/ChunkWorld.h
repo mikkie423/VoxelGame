@@ -8,7 +8,7 @@
 #include "Enums.h"
 #include "FastNoiseLite.h"
 
-
+#include "Components/BoxComponent.h"
 #include "ChunkWorld.generated.h"
 
 class AChunkBase;
@@ -34,7 +34,7 @@ public:
     TObjectPtr<UMaterialInterface> LiquidMaterial;
 
     UPROPERTY(EditInstanceOnly, Category = "Chunk")
-    int Size = 32;
+    int ChunkSize = 32;
 
     int BlockSize = 100;
 
@@ -45,12 +45,14 @@ public:
     AChunkWorld();
 
     TUniquePtr<FastNoiseLite> BiomeNoise;
+    TUniquePtr<FastNoiseLite> HumidityNoise;
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;
 
 private:
     int ChunkCount;
+    TArray<AChunkBase*> LoadedChunks;
 
     void Generate3DWorld();
 
@@ -60,7 +62,7 @@ private:
     float CalculateHumidity(AChunkBase* Chunk, int32 bx, int32 by, int32 bz);
     FVector GetNearestWaterSource(const FVector& Position);
 
-
-
     TArray<AChunkBase*> Chunks;
+
+
 };

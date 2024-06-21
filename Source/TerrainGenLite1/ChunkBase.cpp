@@ -33,7 +33,7 @@ void AChunkBase::BeginPlay()
 	Noise->SetFractalType(FastNoiseLite::FractalType_FBm);
 
 	// Initialize Blocks
-	Blocks.SetNum(Size * Size * Size);
+	Blocks.SetNum(ChunkSize * ChunkSize * ChunkSize);
 
 	GenerateChunk();
 
@@ -49,7 +49,7 @@ void AChunkBase::GenerateChunk()
 	//PrintMeshData(true); // Print land mesh data after generation
 
 	//Generate Liquid
-	GenerateWaterAndHumidity(GetActorLocation() / 100);
+	//GenerateWaterAndHumidity(GetActorLocation() / 100);
 	GenerateMesh(false);
 	UE_LOG(LogTemp, Warning, TEXT("Liquid Vertex Count : %d"), LiquidVertexCount);
 	ApplyMesh(false);
@@ -62,102 +62,129 @@ void AChunkBase::SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Hum
 	// Set biome type for the block at (X, Y, Z)
 	Blocks[GetBlockIndex(X, Y, Z)].BiomeType = BiomeType;
 	Blocks[GetBlockIndex(X, Y, Z)].Humidity = Humidity;
+	int randNum;
 
 
-	if (Blocks[GetBlockIndex(X, Y, Z)].BiomeType == EBiome::Desert)
+	switch (BiomeType)
 	{
+	case EBiome::Null:
+
+		break;
+	case EBiome::Desert:
 		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass || Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Dirt)
 		{
 			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Sand;
 		}
-	}
 
-	if (Blocks[GetBlockIndex(X, Y, Z)].BiomeType == EBiome::Swamp)
-	{
+		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::ShallowWater || Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::DeepWater)
+		{
+			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Sand;
+		}
+		break;
+	case EBiome::Swamp:
+		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass)
+		{
+			randNum = FMath::FRandRange(1, 81);
+			if (randNum == 1)
+			{
+				TreePositions.Add(FIntVector(X, Y, Z));
+			}
+		}
 		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass)
 		{
 			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Swamp;
 		}
-	}
-
-	if (Blocks[GetBlockIndex(X, Y, Z)].BiomeType == EBiome::Taiga)
-	{
+		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Sand && Z < 15)
+		{
+			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Dirt;
+		}
+		break;
+	case EBiome::Tundra:
+		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass || Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Sand)
+		{
+			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Tundra;
+		}
+		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::ShallowWater || Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::DeepWater)
+		{
+			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Ice;
+		}
+		break;
+	case EBiome::Taiga:
+		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass)
+		{
+			randNum = FMath::FRandRange(1, 31);
+			if (randNum == 1)
+			{
+				TreePositions.Add(FIntVector(X, Y, Z));
+			}
+		}
 		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass)
 		{
 			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Taiga;
 		}
-	}
-
-	if (Blocks[GetBlockIndex(X, Y, Z)].BiomeType == EBiome::Tundra)
-	{
+		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Sand)
+		{
+			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Gravel;
+		}
+		break;
+	case EBiome::Plains:
 		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass)
 		{
-			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Tundra;
-		}
-	}
-	// Optionally, update other block properties based on biome and humidity
-}
-
-
-
-void AChunkBase::GenerateWaterAndHumidity(const FVector Position)
-{
-	for (int x = 0; x < Size; ++x)
-	{
-		for (int y = 0; y < Size; ++y)
-		{
-			for (int z = 0; z < Size; ++z)
+			randNum = FMath::FRandRange(1, 101);
+			if (randNum == 1)
 			{
-				const double Zpos = z + Position.Z;
-
-				if (Zpos < 15)
-				{
-					// Check if the block is air and within certain Z range
-					if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Air && z < WaterLevel)
-					{
-						if (z < WaterLevel && z >= WaterLevel - 5)
-						{
-							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::ShallowWater;
-						}
-						else if (z < WaterLevel - 5)
-						{
-							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::DeepWater;
-						}
-
-						Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
-						Blocks[GetBlockIndex(x, y, z)].Humidity = 1.0f;  // Example: Set high humidity near water
-					}
-					else
-					{
-						Blocks[GetBlockIndex(x, y, z)].Humidity = 0.5f;  // Example: Set default humidity for other blocks
-					}
-				}
-				else
-				{
-					Blocks[GetBlockIndex(x, y, z)].Humidity = 0.5f;  // Example: Set default humidity above water level
-				}
+				TreePositions.Add(FIntVector(X, Y, Z));
 			}
 		}
+		break;
+	default:
+		break;
 	}
+	GenerateTrees(TreePositions);
+
 }
 
 
 
+//void AChunkBase::GenerateWaterAndHumidity(const FVector Position)
+//{
+//
+//		// Check if the block is air and within certain Z range
+//		if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Air && z < WaterLevel)
+//		{
+//			if (z < WaterLevel && z >= WaterLevel - 5)
+//			{
+//				Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::ShallowWater;
+//			}
+//			else if (z < WaterLevel - 5)
+//			{
+//				Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::DeepWater;
+//			}
+//
+//			Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
+//			Blocks[GetBlockIndex(x, y, z)].Humidity = 1.0f;
+//		}
+//		else
+//		{
+//			Blocks[GetBlockIndex(x, y, z)].Humidity = 1.0f;
+//		}
+//
+//}
 
 
 void AChunkBase::GenerateHeightMap(const FVector Position)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Generating 3D Height Map"));
 
-	for (int x = 0; x < Size; ++x)
+	for (int x = 0; x < ChunkSize; ++x)
 	{
-		for (int y = 0; y < Size; ++y)
+		for (int y = 0; y < ChunkSize; ++y)
 		{
 			const float Xpos = x + Position.X;
 			const float Ypos = y + Position.Y;
-			const float SurfaceHeight = FMath::Clamp(FMath::RoundToInt((Noise->GetNoise(Xpos, Ypos) + 1) * Size / 2), 0, Size);
+			const float SurfaceHeight = FMath::Clamp(FMath::RoundToInt((Noise->GetNoise(Xpos, Ypos) + 1) * ChunkSize / 2), 0, ChunkSize);
 
-			for (int z = 0; z < Size; ++z)
+			for (int z = 0; z < ChunkSize; ++z)
 			{
 				const double Zpos = z + Position.Z;
 
@@ -188,31 +215,32 @@ void AChunkBase::GenerateHeightMap(const FVector Position)
 					}
 					else if (Zpos == SurfaceHeight - 1)
 					{
-						int randNum = FMath::FRandRange(1, 51);
-						if (randNum == 1 && Zpos > 15)
-						{
-							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Dirt;
-							Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-							TreePositions.Add(FIntVector(x, y, z));
-						}
-						else
-						{
-							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Grass;
-							Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
-						}
+						Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Grass;
+						Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
 					}
 					else
 					{
 						Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Air;
 						Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
 					}
-					if (Zpos < 15)
+					if (Zpos < WaterLevel)
 					{
-						/*if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Air)
+						// Check if the block is air and within certain Z range
+						if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Air)
 						{
-							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::ShallowWater;
+							if (z < WaterLevel && z >= WaterLevel - 5)
+							{
+								Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::ShallowWater;
+							}
+							else if (z < WaterLevel - 5)
+							{
+								Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::DeepWater;
+							}
+
 							Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
-						}*/
+							Blocks[GetBlockIndex(x, y, z)].Humidity = 1.0f;
+							WaterBlockPositions.Add(FIntVector(x, y, z));
+						}
 						if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass || Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Dirt && Zpos > 10)
 						{
 							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Sand;
@@ -228,7 +256,6 @@ void AChunkBase::GenerateHeightMap(const FVector Position)
 			}
 		}
 	}
-	GenerateTrees(TreePositions);
 }
 
 
@@ -247,9 +274,9 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 		const int Axis1 = (Axis + 1) % 3;
 		const int Axis2 = (Axis + 2) % 3;
 
-		const int MainAxisLimit = Size;
-		const int Axis1Limit = Size;
-		const int Axis2Limit = Size;
+		const int MainAxisLimit = ChunkSize;
+		const int Axis1Limit = ChunkSize;
+		const int Axis2Limit = ChunkSize;
 
 		auto DeltaAxis1 = FIntVector::ZeroValue;
 		auto DeltaAxis2 = FIntVector::ZeroValue;
@@ -262,36 +289,33 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 		TArray<FBlockData> BlockData;
 		BlockData.SetNum(Axis1Limit * Axis2Limit);
 
-		for (ChunkItr[Axis] = -1; ChunkItr[Axis] < MainAxisLimit;)
+		for (ChunkItr[Axis] = -1; ChunkItr[Axis] < MainAxisLimit;) 
 		{
 			int N = 0;
 
-			for (ChunkItr[Axis2] = 0; ChunkItr[Axis2] < Axis2Limit; ++ChunkItr[Axis2])
+			for (ChunkItr[Axis2] = 0; ChunkItr[Axis2] < Axis2Limit; ++ChunkItr[Axis2]) 
 			{
-				for (ChunkItr[Axis1] = 0; ChunkItr[Axis1] < Axis1Limit; ++ChunkItr[Axis1])
+				for (ChunkItr[Axis1] = 0; ChunkItr[Axis1] < Axis1Limit; ++ChunkItr[Axis1]) 
 				{
-					const auto CurrentBlock = GetBlockType(ChunkItr);
-					const auto CompareBlock = GetBlockType(ChunkItr + AxisMask);
-
 					/*
 					*
 					* Checks if Block faces air, another opaque block or water to ensure proper face display. Doesnt lose whole chunk.
 					*
 					*/
+					const auto CurrentBlock = GetBlockType(ChunkItr);
+					const auto CompareBlock = GetBlockType(ChunkItr + AxisMask);
 
-					const bool CurrentBlockOpaque = CurrentBlock != EBlock::Air && CurrentBlock != EBlock::ShallowWater && CurrentBlock != EBlock::DeepWater;
-					const bool CompareBlockOpaque = CompareBlock != EBlock::Air && CompareBlock != EBlock::ShallowWater && CompareBlock != EBlock::DeepWater;
+					const bool CurrentBlockIsOpaque = CurrentBlock != EBlock::Air && CurrentBlock != EBlock::ShallowWater && CurrentBlock != EBlock::DeepWater;
+					const bool CompareBlockIsOpaque = CompareBlock != EBlock::Air && CompareBlock != EBlock::ShallowWater && CompareBlock != EBlock::DeepWater;
 
 					const bool CurrentBlockIsLiquid = CurrentBlock == EBlock::ShallowWater || CurrentBlock == EBlock::DeepWater;
 					const bool CompareBlockIsLiquid = CompareBlock == EBlock::ShallowWater || CompareBlock == EBlock::DeepWater;
 
-
-
-					if (CurrentBlockOpaque == CompareBlockOpaque && CurrentBlockIsLiquid == CompareBlockIsLiquid)
+					if (CurrentBlockIsOpaque == CompareBlockIsOpaque && CurrentBlockIsLiquid == CompareBlockIsLiquid)
 					{
 						BlockData[N++].Mask = FMask{ EBlock::Null, 0 };
 					}
-					else if (CurrentBlockOpaque)
+					else if (CurrentBlockIsOpaque)
 					{
 						BlockData[N++].Mask = FMask{ CurrentBlock, 1 };
 					}
@@ -301,7 +325,6 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 					}
 					else
 					{
-						UE_LOG(LogTemp, Error, TEXT("Unexpected condition: CurrentBlock %d, CompareBlock %d"), static_cast<int>(CurrentBlock), static_cast<int>(CompareBlock));
 						BlockData[N++].Mask = FMask{ CompareBlock, -1 };
 					}
 					/*
@@ -311,6 +334,7 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 					*/
 				}
 			}
+
 
 			++ChunkItr[Axis];
 			N = 0;
@@ -327,7 +351,9 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 
 						int Width;
 
-						for (Width = 1; i + Width < Axis1Limit && CompareMask(BlockData[N + Width].Mask, CurrentMask.Mask); ++Width);
+						for (Width = 1; i + Width < Axis1Limit && CompareMask(BlockData[N + Width].Mask, CurrentMask.Mask); ++Width)
+						{
+						}
 
 						int Height;
 						bool Done = false;
@@ -437,10 +463,10 @@ void AChunkBase::CreateQuad(
 	int& VertexCount
 )
 {
-	//if (BlockData.Mask.BlockType == EBlock::Air || BlockData.Mask.BlockType == EBlock::Null)
-	//{
-	//	return; // Skip empty or non-existent blocks
-	//}
+	if (BlockData.Mask.BlockType == EBlock::Air || BlockData.Mask.BlockType == EBlock::Null)
+	{
+		return; // Skip empty or non-existent blocks
+	}
 
 	const auto NormalVector = FVector(AxisMask * BlockData.Mask.Normal);
 	auto Color = FColor(0, 0, 0, GetTextureIndex(BlockData.Mask.BlockType, NormalVector));
@@ -532,15 +558,16 @@ void AChunkBase::ApplyMesh(bool isLandMesh) const
 	);
 
 	// Set material (assuming you have different materials for land and liquid meshes)
-	UMaterialInterface* MeshMaterial = isLandMesh ? LandMaterial : LiquidMaterial;
-	MeshComponent->SetMaterial(SectionIndex, MeshMaterial);
+	//UMaterialInterface* MeshMaterial = isLandMesh ? LandMaterial : LiquidMaterial;
+	MeshComponent->SetMaterial(SectionIndex, LandMaterial);
 
 
 	// Set collision settings for the mesh sections
-	if (!isLandMesh)
+	if (SectionIndex == 1)
 	{
 		MeshComponent->SetCollisionProfileName(TEXT("WaterMesh"));
-		MeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
+		MeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+		MeshComponent->SetCollisionResponseToChannel(ECC_Pawn, ECollisionResponse::ECR_Overlap);
 	}
 	else
 	{
@@ -563,7 +590,7 @@ void AChunkBase::ClearMesh(bool isLandMesh)
 
 void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
 {
-	if (Position.X >= Size || Position.Y >= Size || Position.Z >= Size || Position.X < 0 || Position.Y < 0 || Position.Z < 0)
+	if (Position.X >= ChunkSize || Position.Y >= ChunkSize || Position.Z >= ChunkSize || Position.X < 0 || Position.Y < 0 || Position.Z < 0)
 		return;
 
 	const int Index = GetBlockIndex(Position.X, Position.Y, Position.Z);
@@ -572,15 +599,11 @@ void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
 		// Only modify if the block type is different
 		ModifyVoxelData(Position, Block);
 
-		// Regenerate land mesh
 		ClearMesh(true);
-		GenerateMesh(true);
-		ApplyMesh(true);
-
-
-
 		ClearMesh(false);
+		GenerateMesh(true);
 		GenerateMesh(false);
+		ApplyMesh(true);
 		ApplyMesh(false);
 	}
 }
@@ -595,19 +618,19 @@ void AChunkBase::ModifyVoxelData(const FIntVector Position, const EBlock Block)
 
 int AChunkBase::GetBlockIndex(const int X, const int Y, const int Z) const
 {
-	return Z * Size * Size + Y * Size + X;
+	return Z * ChunkSize * ChunkSize + Y * ChunkSize + X;
 }
 
 EBlock AChunkBase::GetBlockType(const FIntVector Index) const
 {
-	if (Index.X >= Size || Index.Y >= Size || Index.Z >= Size || Index.X < 0 || Index.Y < 0 || Index.Z < 0)
+	if (Index.X >= ChunkSize || Index.Y >= ChunkSize || Index.Z >= ChunkSize || Index.X < 0 || Index.Y < 0 || Index.Z < 0)
 		return EBlock::Air;
 	return Blocks[GetBlockIndex(Index.X, Index.Y, Index.Z)].Mask.BlockType;
 }
 
 FBlockData AChunkBase::GetBlockData(const FIntVector Index) const
 {
-	if (Index.X >= Size || Index.Y >= Size || Index.Z >= Size || Index.X < 0 || Index.Y < 0 || Index.Z < 0)
+	if (Index.X >= ChunkSize || Index.Y >= ChunkSize || Index.Z >= ChunkSize || Index.X < 0 || Index.Y < 0 || Index.Z < 0)
 		return FBlockData();
 	return Blocks[GetBlockIndex(Index.X, Index.Y, Index.Z)];
 }
@@ -638,6 +661,7 @@ int AChunkBase::GetTextureIndex(const EBlock Block, const FVector Normal) const
 	case EBlock::Swamp:return 11;
 	case EBlock::Taiga:return 12;
 	case EBlock::Tundra:return 13;
+	case EBlock::Ice:return 14;
 	default: return 255;
 	}
 }
@@ -656,7 +680,7 @@ void AChunkBase::GenerateTrees(TArray<FIntVector> LocalTreePositions)
 		// Place the trunk
 		for (int i = 0; i < TreeHeight; ++i)
 		{
-			if (Z + i < Size)
+			if (Z + i < ChunkSize)
 			{
 				const int Index = GetBlockIndex(X, Y, Z + i);
 				Blocks[Index].Mask.BlockType = EBlock::Log;
@@ -680,7 +704,7 @@ void AChunkBase::GenerateTrees(TArray<FIntVector> LocalTreePositions)
 					// Ensure leaf placement forms a circular shape
 					if (FMath::Abs(dx) + FMath::Abs(dy) <= LeafRadius)
 					{
-						if (X + dx >= 0 && X + dx < Size && Y + dy >= 0 && Y + dy < Size && Z + dz >= 0 && Z + dz < Size)
+						if (X + dx >= 0 && X + dx < ChunkSize && Y + dy >= 0 && Y + dy < ChunkSize && Z + dz >= 0 && Z + dz < ChunkSize)
 						{
 							const int Index = GetBlockIndex(X + dx, Y + dy, Z + dz);
 							Blocks[Index].Mask.BlockType = EBlock::Leaves;
@@ -721,13 +745,10 @@ void AChunkBase::RegenerateChunkBlockTextures()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Regenerating Block Textures"));
 
-	//Regenerate Land
 	ClearMesh(true);
-	GenerateMesh(true);
-	ApplyMesh(true);
-
-	//Regenerate Liquid
 	ClearMesh(false);
+	GenerateMesh(true);
 	GenerateMesh(false);
+	ApplyMesh(true);
 	ApplyMesh(false);
 }

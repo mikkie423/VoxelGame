@@ -9,6 +9,7 @@ AChunkWorld::AChunkWorld()
 
     // Initialize BiomeNoise
     BiomeNoise = MakeUnique<FastNoiseLite>();
+    HumidityNoise = MakeUnique<FastNoiseLite>();
 }
 
 // Called when the game starts or when spawned
@@ -25,9 +26,20 @@ void AChunkWorld::Generate3DWorld()
 {
     UE_LOG(LogTemp, Warning, TEXT("Generate 3D World"));
 
-    BiomeNoise->SetFrequency(0.3);
-    BiomeNoise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    BiomeNoise->SetFrequency(0.010); // Lower frequency for smoother transitions
+    BiomeNoise->SetNoiseType(FastNoiseLite::NoiseType_Cellular);
     BiomeNoise->SetFractalType(FastNoiseLite::FractalType_FBm);
+    BiomeNoise->SetFractalOctaves(3); // More octaves for detail
+    BiomeNoise->SetCellularReturnType(FastNoiseLite::CellularReturnType_CellValue);
+
+    HumidityNoise->SetFrequency(0.005); // Matching frequency for aligned transitions
+    HumidityNoise->SetNoiseType(FastNoiseLite::NoiseType_Cellular);
+    HumidityNoise->SetFractalType(FastNoiseLite::FractalType_FBm);
+    HumidityNoise->SetFractalOctaves(3);
+    HumidityNoise->SetCellularReturnType(FastNoiseLite::CellularReturnType_CellValue);
+    HumidityNoise->SetCellularDistanceFunction(FastNoiseLite::CellularDistanceFunction_Hybrid);
+    HumidityNoise->SetCellularJitter(2.5f);
+
 
     for (int x = -DrawDistance; x <= DrawDistance; x++)
     {
@@ -37,7 +49,7 @@ void AChunkWorld::Generate3DWorld()
             {
                 auto Transform = FTransform(
                     FRotator::ZeroRotator,
-                    FVector(x * Size * 100, y * Size * 100, z * Size * 100),
+                    FVector(x * ChunkSize * 100, y * ChunkSize * 100, z * ChunkSize * 100),
                     FVector::OneVector
                 );
 
@@ -50,7 +62,7 @@ void AChunkWorld::Generate3DWorld()
                 Chunk->Frequency = Frequency;
                 Chunk->LandMaterial = LandMaterial;
                 Chunk->LiquidMaterial = LiquidMaterial;
-                Chunk->Size = Size;
+                Chunk->ChunkSize = ChunkSize;
                 Chunk->DrawDistance = DrawDistance;
                 Chunk->ZRepeat = z;
 
@@ -70,24 +82,30 @@ void AChunkWorld::SetBiomeForChunk(AChunkBase* Chunk, int32 ChunkX, int32 ChunkY
 {
     UE_LOG(LogTemp, Warning, TEXT("Set Biome For Chunk"));
 
-    for (int32 bx = 0; bx < Size; ++bx)
+    for (int32 bx = 0; bx < ChunkSize; ++bx)
     {
-        for (int32 by = 0; by < Size; ++by)
+        for (int32 by = 0; by < ChunkSize; ++by)
         {
-            for (int32 bz = 0; bz < Size; ++bz)
+            for (int32 bz = 0; bz < ChunkSize; ++bz)
             {
-                float Xpos = bx + ChunkX * Size;
-                float Ypos = by + ChunkY * Size;
-                float Zpos = bz + ChunkZ * Size;
+                float Xpos = bx + ChunkX * ChunkSize;
+                float Ypos = by + ChunkY * ChunkSize;
+                float Zpos = bz + ChunkZ * ChunkSize;
 
-                float NoiseValue = BiomeNoise->GetNoise(Xpos, Ypos, Zpos);
+                // Calculate local coordinates within the chunk
+                int32 LocalX = bx;
+                int32 LocalY = by;
+                int32 LocalZ = bz;
 
-                // Calculate humidity based on distance to nearest water source
-                float Humidity = CalculateHumidity(Chunk, bx, by, bz);
+                // Sample noise for biome generation
+                float NoiseValue = BiomeNoise->GetNoise(Xpos, Ypos);
+                float HumidityValue = HumidityNoise->GetNoise(Xpos, Ypos);
 
-                EBiome BiomeType = GetBiomeType(NoiseValue, Humidity);
+                // Determine biome type based on noise values
+                EBiome BiomeType = GetBiomeType(NoiseValue, HumidityValue);
 
-                Chunk->SetBiome(bx, by, bz, BiomeType, Humidity);
+                // Set biome type and humidity for the block in the chunk
+                Chunk->SetBiome(LocalX, LocalY, LocalZ, BiomeType, HumidityValue);
             }
         }
     }
@@ -98,85 +116,76 @@ void AChunkWorld::SetBiomeForChunk(AChunkBase* Chunk, int32 ChunkX, int32 ChunkY
 
 
 // Function to map noise value to EBiome enum
+// -1 Noise == Coldest, +1 Noise == Hottest
 EBiome AChunkWorld::GetBiomeType(float NoiseValue, float Humidity) const
 {
-    // Adjust the range and thresholds based on desired noise and humidity values
+    // Ensure NoiseValue and Humidity are within [-1, 1]
+    NoiseValue = FMath::Clamp(NoiseValue, -1.0f, 1.0f);
+    Humidity = FMath::Clamp(Humidity, -1.0f, 1.0f);
+
+    // Adjust thresholds for smooth transitions
     if (NoiseValue < -0.6f)
     {
-        if (Humidity < 0.3f)
+        if (Humidity < -0.6f)
         {
-            return EBiome::Desert;
+            return EBiome::Tundra;   // Cold and dry
         }
-        else if (Humidity >= 0.3f && Humidity < 0.7f)
+        else if (Humidity < 0.4f)
         {
-            return EBiome::Plains;
+            return EBiome::Taiga;    // Cold and moderately wet
         }
         else
         {
-            return EBiome::Swamp;
+            return EBiome::Swamp;    // Cold and wet
         }
     }
-    else if (NoiseValue < -0.2f)
+    else if (NoiseValue < 0.0f)
     {
-        if (Humidity < 0.5f)
+        if (Humidity < -0.2f)
         {
-            return EBiome::Desert;
+            return EBiome::Plains;   // Moderate and dry
         }
-        else if (Humidity >= 0.5f && Humidity < 0.7f)
+        else if (Humidity < 0.4f)
         {
-            return EBiome::Swamp;
+            return EBiome::Taiga;    // Moderate and moderately wet
         }
         else
         {
-            return EBiome::Tundra;
+            return EBiome::Swamp;    // Moderate and wet
         }
     }
-    else if (NoiseValue < 0.2f)
+    else if (NoiseValue < 0.4f)
     {
-        if (Humidity < 0.3f)
+        if (Humidity < -0.2f)
         {
-            return EBiome::Plains;
+            return EBiome::Plains;   // Warm and dry
         }
-        else if (Humidity >= 0.3f && Humidity < 0.7f)
+        else if (Humidity < 0.4f)
         {
-            return EBiome::Taiga;
+            return EBiome::Swamp;    // Warm and moderately wet
         }
         else
         {
-            return EBiome::Swamp;
-        }
-    }
-    else if (NoiseValue < 0.6f)
-    {
-        if (Humidity < 0.5f)
-        {
-            return EBiome::Taiga;
-        }
-        else if (Humidity >= 0.5f && Humidity < 0.8f)
-        {
-            return EBiome::Tundra;
-        }
-        else
-        {
-            return EBiome::Swamp;
+            return EBiome::Taiga;    // Warm and wet
         }
     }
     else
     {
-        if (Humidity < 0.6f)
+        if (Humidity < 0.0f)
         {
-            return EBiome::Tundra;
+            return EBiome::Desert;   // Hot and dry
         }
-        else if (Humidity >= 0.6f && Humidity < 0.8f)
+        else if (Humidity < 0.4f)
         {
-            return EBiome::Swamp;
+            return EBiome::Plains;   // Hot and moderately wet
         }
         else
         {
-            return EBiome::Taiga;
+            return EBiome::Swamp;    // Hot and wet
         }
     }
 }
+
 
 
 float AChunkWorld::CalculateHumidity(AChunkBase* Chunk, int32 bx, int32 by, int32 bz)
@@ -200,17 +209,17 @@ FVector AChunkWorld::GetNearestWaterSource(const FVector& Position)
     for (AChunkBase* Chunk : Chunks)
     {
         // Iterate over all blocks in the chunk
-        for (int bx = 0; bx < Size; ++bx)
+        for (int bx = 0; bx < ChunkSize; ++bx)
         {
-            for (int by = 0; by < Size; ++by)
+            for (int by = 0; by < ChunkSize; ++by)
             {
-                for (int bz = 0; bz < Size; ++bz)
+                for (int bz = 0; bz < ChunkSize; ++bz)
                 {
                     int BlockIndex = Chunk->GetBlockIndex(bx, by, bz);
                     EBlock BlockType = Chunk->Blocks[BlockIndex].Mask.BlockType;
 
                     // Check if the block is shallow or deep water
-                    if (BlockType == EBlock::ShallowWater || BlockType == EBlock::DeepWater)
+                    if (BlockType == EBlock::ShallowWater || BlockType == EBlock::DeepWater || BlockType == EBlock::Ice)
                     {
                         // Calculate water block position based on chunk and block indices
                         FVector WaterBlockPosition = Chunk->GetActorLocation() + FVector(bx, by, bz) * BlockSize;

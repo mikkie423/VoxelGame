@@ -26,7 +26,7 @@ public:
 	AChunkBase();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Chunk")
-	int Size = 32;
+	int ChunkSize = 32;
 
 	TObjectPtr<UMaterialInterface> LandMaterial;
 	TObjectPtr<UMaterialInterface> LiquidMaterial;
@@ -34,8 +34,10 @@ public:
 	int ZRepeat;
 	int DrawDistance;
 
+	int BlockSize = 100;
+
 	UPROPERTY(EditInstanceOnly, Category = "World")
-	int WaterLevel = 20;
+	int WaterLevel = 15;
 
 	UFUNCTION(BlueprintCallable, Category = "Chunk")
 	void ModifyVoxel(const FIntVector Position, const EBlock Block);
@@ -54,9 +56,11 @@ public:
 	void SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Humidity);
 
 	TArray<FBlockData> Blocks;
+	TArray<FIntVector> WaterBlockPositions;
+
+	void GenerateTrees(TArray<FIntVector> LocalTreePositions);
 
 	void RegenerateChunkBlockTextures();
-
 
 protected:
 	// Called when the game starts or when spawned
@@ -85,16 +89,12 @@ private:
 	void ClearMesh(bool isLandMesh);
 	void GenerateChunk();
 
-
 	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4, FChunkMeshData& MeshData, int& VertexCount);
-
-
 
 	bool CompareMask(FMask M1, FMask M2) const;
 	int GetTextureIndex(EBlock Block, FVector Normal) const;
 
 	TArray<FIntVector> TreePositions;
-	void GenerateTrees(TArray<FIntVector> LocalTreePositions);
 
 	void PrintMeshData(bool isLandMesh) const;
 

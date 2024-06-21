@@ -9,7 +9,7 @@ enum class EDirection : uint8
 UENUM(BlueprintType)
 enum class EBlock : uint8
 {
-   Grass, Dirt, Stone, Bedrock, Log, Leaves, Sand, Gravel, ShallowWater, DeepWater, Swamp, Taiga, Tundra, Air, Null
+   Grass, Dirt, Stone, Bedrock, Log, Leaves, Sand, Gravel, ShallowWater, DeepWater, Swamp, Taiga, Tundra, Ice, Air, Null
 };
 
 UENUM(BlueprintType)

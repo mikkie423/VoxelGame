@@ -6,7 +6,9 @@
 #include "Enums.h"
 #include "BlockData.h"
 #include "FastNoiseLite.h"
+#include "ProceduralMeshComponent.h"
 #include "ChunkBase.generated.h"
+
 
 // Define  custom channels
 #define ECC_LandMesh ECC_GameTraceChannel2
@@ -62,6 +64,8 @@ public:
 
 	void RegenerateChunkBlockTextures();
 
+
+
 protected:
 	// Called when the game starts or when spawned
 	void BeginPlay() ;
@@ -72,7 +76,6 @@ protected:
 
 
 	void ModifyVoxelData(const FIntVector Position, const EBlock Block);
-
 	TObjectPtr<UProceduralMeshComponent> LandMesh;
 	TObjectPtr<UProceduralMeshComponent> LiquidMesh;
 	TUniquePtr<FastNoiseLite> Noise;
@@ -97,5 +100,7 @@ private:
 	TArray<FIntVector> TreePositions;
 
 	void PrintMeshData(bool isLandMesh) const;
+	void UpdateWaterMesh();
+
 
 };

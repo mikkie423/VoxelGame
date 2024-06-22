@@ -7,13 +7,10 @@
 
 #include "Enums.h"
 #include "FastNoiseLite.h"
-
-#include "Components/BoxComponent.h"
 #include "ChunkWorld.generated.h"
 
 class AChunkBase;
 class FastNoiseLite;
-
 
 UCLASS()
 class AChunkWorld final : public AActor
@@ -44,15 +41,13 @@ public:
     // Sets default values for this actor's properties
     AChunkWorld();
 
-    TUniquePtr<FastNoiseLite> BiomeNoise;
-    TUniquePtr<FastNoiseLite> HumidityNoise;
+
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;
 
 private:
     int ChunkCount;
-    TArray<AChunkBase*> LoadedChunks;
 
     void Generate3DWorld();
 
@@ -64,5 +59,6 @@ private:
 
     TArray<AChunkBase*> Chunks;
 
-
+    TUniquePtr<FastNoiseLite> BiomeNoise;
+    TUniquePtr<FastNoiseLite> HumidityNoise;
 };

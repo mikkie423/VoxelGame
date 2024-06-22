@@ -191,7 +191,7 @@ void AChunkBase::GenerateHeightMap(const FVector Position)
 				const auto NoiseValue = Noise->GetNoise(x + Position.X, y + Position.Y, Zpos);
 				int BaseZ = DrawDistance - (DrawDistance * 2);
 
-				if (z == 0 && ZRepeat == BaseZ)
+				if (z == 0)
 				{
 					Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Bedrock;
 					Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
@@ -271,6 +271,7 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Generating Mesh"));
 
+	// Loop through the three axes
 	for (int Axis = 0; Axis < 3; ++Axis)
 	{
 		const int Axis1 = (Axis + 1) % 3;
@@ -285,33 +286,28 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 
 		auto ChunkItr = FIntVector::ZeroValue;
 		auto AxisMask = FIntVector::ZeroValue;
-
 		AxisMask[Axis] = 1;
 
+		// Iterate through each block in the chunk
 		TArray<FBlockData> BlockData;
 		BlockData.SetNum(Axis1Limit * Axis2Limit);
 
-		for (ChunkItr[Axis] = -1; ChunkItr[Axis] < MainAxisLimit;) 
+		for (ChunkItr[Axis] = -1; ChunkItr[Axis] < MainAxisLimit;)
 		{
 			int N = 0;
 
-			for (ChunkItr[Axis2] = 0; ChunkItr[Axis2] < Axis2Limit; ++ChunkItr[Axis2]) 
+			// Iterate through Axis2 and Axis1
+			for (ChunkItr[Axis2] = 0; ChunkItr[Axis2] < Axis2Limit; ++ChunkItr[Axis2])
 			{
-				for (ChunkItr[Axis1] = 0; ChunkItr[Axis1] < Axis1Limit; ++ChunkItr[Axis1]) 
+				for (ChunkItr[Axis1] = 0; ChunkItr[Axis1] < Axis1Limit; ++ChunkItr[Axis1])
 				{
-					/*
-					*
-					* Checks if Block faces air, another opaque block or water to ensure proper face display. Doesnt lose whole chunk.
-					*
-					*/
 					const auto CurrentBlock = GetBlockType(ChunkItr);
 					const auto CompareBlock = GetBlockType(ChunkItr + AxisMask);
 
-					// Determine if the current and compare blocks are opaque
+					// Determine if the current and compare blocks are opaque or liquid
 					const bool CurrentBlockIsOpaque = CurrentBlock != EBlock::Air && CurrentBlock != EBlock::ShallowWater && CurrentBlock != EBlock::DeepWater;
 					const bool CompareBlockIsOpaque = CompareBlock != EBlock::Air && CompareBlock != EBlock::ShallowWater && CompareBlock != EBlock::DeepWater;
 
-					// Determine if the current and compare blocks are liquid
 					const bool CurrentBlockIsLiquid = CurrentBlock == EBlock::ShallowWater || CurrentBlock == EBlock::DeepWater;
 					const bool CompareBlockIsLiquid = CompareBlock == EBlock::ShallowWater || CompareBlock == EBlock::DeepWater;
 
@@ -345,20 +341,14 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 						// Default case: use the compare block type
 						BlockData[N++].Mask = FMask{ CompareBlock, -1 };
 					}
-
-
-					/*
-					*
-					* End Point
-					*
-					*/
 				}
 			}
 
-
+			// Increment ChunkItr[Axis] and reset N
 			++ChunkItr[Axis];
 			N = 0;
 
+			// Loop through Axis2Limit and Axis1Limit
 			for (int j = 0; j < Axis2Limit; ++j)
 			{
 				for (int i = 0; i < Axis1Limit;)
@@ -394,22 +384,13 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 						DeltaAxis1[Axis1] = Width;
 						DeltaAxis2[Axis2] = Height;
 
-						/*
-						*
-						* Ensures the Land and Liquid Mesh dont get each others blocks, dont get duplicated
-						*
-						*/
-						FChunkMeshData& MeshData = isLandMesh ? LandMeshData : LiquidMeshData;
-						int& VertexCount = isLandMesh ? LandVertexCount : LiquidVertexCount;
-
-						// Check if the block is water
+						// Determine if the block is water
 						bool isWaterBlock = CurrentMask.Mask.BlockType == EBlock::ShallowWater || CurrentMask.Mask.BlockType == EBlock::DeepWater;
 
 						// Check if the mesh type matches the block type
 						if (isWaterBlock && isLandMesh)
 						{
-							UE_LOG(LogTemp, Warning, TEXT("Dont make quad for isWaterBlock and isLandMesh"));
-
+							UE_LOG(LogTemp, Warning, TEXT("Skip quad creation for water block in land mesh"));
 						}
 						else
 						{
@@ -422,15 +403,10 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 								ChunkItr + DeltaAxis1,
 								ChunkItr + DeltaAxis2,
 								ChunkItr + DeltaAxis1 + DeltaAxis2,
-								MeshData,
-								VertexCount
+								isLandMesh ? LandMeshData : LiquidMeshData,
+								isLandMesh ? LandVertexCount : LiquidVertexCount
 							);
 						}
-						/*
-						*
-						* End Point
-						*
-						*/
 
 						DeltaAxis1 = FIntVector::ZeroValue;
 						DeltaAxis2 = FIntVector::ZeroValue;
@@ -456,6 +432,7 @@ void AChunkBase::GenerateMesh(bool isLandMesh)
 		}
 	}
 }
+
 
 
 
@@ -583,8 +560,8 @@ void AChunkBase::ApplyMesh(bool isLandMesh) const
 	);
 
 	// Set material (assuming you have different materials for land and liquid meshes)
-	//UMaterialInterface* MeshMaterial = isLandMesh ? LandMaterial : LiquidMaterial;
-	MeshComponent->SetMaterial(SectionIndex, LandMaterial);
+	UMaterialInterface* MeshMaterial = isLandMesh ? LandMaterial : LiquidMaterial;
+	MeshComponent->SetMaterial(SectionIndex, MeshMaterial);
 
 
 	// Set collision settings for the mesh sections
@@ -626,6 +603,7 @@ void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
 
 		ClearMesh(true);
 		ClearMesh(false);
+		UpdateWaterMesh();
 		GenerateMesh(true);
 		GenerateMesh(false);
 		ApplyMesh(true);
@@ -776,4 +754,51 @@ void AChunkBase::RegenerateChunkBlockTextures()
 	GenerateMesh(false);
 	ApplyMesh(true);
 	ApplyMesh(false);
+}
+
+void AChunkBase::UpdateWaterMesh()
+{
+	UE_LOG(LogTemp, Warning, TEXT("UpdateWaterMesh"));
+
+	for (int x = 0; x < ChunkSize; ++x)
+	{
+		for (int y = 0; y < ChunkSize; ++y)
+		{
+			for (int z = 0; z < ChunkSize; ++z)
+			{
+				const auto BlockType = Blocks[GetBlockIndex(x, y, z)].Mask.BlockType;
+
+				if (BlockType == EBlock::ShallowWater || BlockType == EBlock::DeepWater)
+				{
+					// Check surrounding blocks
+					for (int dx = -1; dx <= 1; ++dx)
+					{
+						for (int dy = -1; dy <= 1; ++dy)
+						{
+							for (int dz = -1; dz <= 1; ++dz)
+							{
+								if (dx == 0 && dy == 0 && dz == 0)
+									continue;
+
+								int nx = x + dx;
+								int ny = y + dy;
+								int nz = z + dz;
+
+								if (nx >= 0 && ny >= 0 && nz >= 0 && nx < ChunkSize && ny < ChunkSize && nz < ChunkSize)
+								{
+									auto NeighborBlockType = Blocks[GetBlockIndex(nx, ny, nz)].Mask.BlockType;
+
+									if (NeighborBlockType == EBlock::Air && (nz+1) <= WaterLevel)
+									{
+										// Convert air pocket to water
+										Blocks[GetBlockIndex(nx, ny, nz)].Mask.BlockType = BlockType;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }

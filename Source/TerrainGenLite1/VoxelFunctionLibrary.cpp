@@ -8,11 +8,11 @@ FIntVector UVoxelFunctionLibrary::WorldToBlockPosition(const FVector& Position)
 	return FIntVector(Position) / 100;
 }
 
-FIntVector UVoxelFunctionLibrary::WorldToLocalBlockPosition(const FVector& Position, const int Size)
+FIntVector UVoxelFunctionLibrary::WorldToLocalBlockPosition(const FVector& Position, const int ChunkSize)
 {
-	const auto ChunkPos = WorldToChunkPosition(Position, Size);
+	const auto ChunkPos = WorldToChunkPosition(Position, ChunkSize);
 
-	auto Result = WorldToBlockPosition(Position) - ChunkPos * Size;
+	auto Result = WorldToBlockPosition(Position) - ChunkPos * ChunkSize;
 
 	// Negative Normalization
 	if (ChunkPos.X < 0) Result.X--;
@@ -22,11 +22,11 @@ FIntVector UVoxelFunctionLibrary::WorldToLocalBlockPosition(const FVector& Posit
 	return Result;
 }
 
-FIntVector UVoxelFunctionLibrary::WorldToChunkPosition(const FVector& Position, const int Size)
+FIntVector UVoxelFunctionLibrary::WorldToChunkPosition(const FVector& Position, const int ChunkSize)
 {
 	FIntVector Result;
 
-	const int Factor = Size * 100;
+	const int Factor = ChunkSize * 100;
 	const auto IntPosition = FIntVector(Position);
 
 	if (IntPosition.X < 0) Result.X = (int)(Position.X / Factor) - 1;

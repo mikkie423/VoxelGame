@@ -9,12 +9,16 @@ enum class EDirection : uint8
 UENUM(BlueprintType)
 enum class EBlock : uint8
 {
-    Null, Air, Stone, Dirt, Grass
+   Grass, Dirt, Stone, Bedrock, Log, Leaves, Sand, Gravel, ShallowWater, DeepWater, Swamp, Taiga, Tundra, Ice, Air, Null
 };
 
 UENUM(BlueprintType)
-enum class EGenerationType : uint8
+enum class EBiome : uint8
 {
-    GT_3D UMETA(DisplayName = "3D"),
-    GT_2D UMETA(DisplayName = "2D"),
+    Null,
+    Desert,
+    Swamp,
+    Tundra,
+    Taiga,
+    Plains
 };

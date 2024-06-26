@@ -1,62 +1,108 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-
 #include "ChunkMeshData.h"
 #include "Enums.h"
-
+#include "BlockData.h"
+#include "FastNoiseLite.h"
+#include "ProceduralMeshComponent.h"
 #include "ChunkBase.generated.h"
+
+
+// Define  custom channels
+#define ECC_LandMesh ECC_GameTraceChannel2
+#define ECC_WaterMesh ECC_GameTraceChannel3
 
 
 class FastNoiseLite;
 class UProceduralMeshComponent;
 
-
-UCLASS(Abstract)
-class TERRAINGENLITE1_API AChunkBase : public AActor
+UCLASS()
+class TERRAINGENLITE1_API AChunkBase: public AActor
 {
 	GENERATED_BODY()
 	
-public:	
+public:
 	// Sets default values for this actor's properties
 	AChunkBase();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Chunk")
-		int Size = 64;
+	int ChunkSize = 32;
 
-		TObjectPtr<UMaterialInterface> Material;
-		float Frequency;
-		EGenerationType GenerationType;
+	TObjectPtr<UMaterialInterface> LandMaterial;
+	TObjectPtr<UMaterialInterface> LiquidMaterial;
 
-		UFUNCTION(BlueprintCallable, Category = "Chunk")
-		void ModifyVoxel(const FIntVector Position, const EBlock Block);
+	int WorldSeed;
+	float Frequency;
+	int ZRepeat;
+	int DrawDistance;
+	int BlockSize;
 
-		//UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		//TArray<UMaterialInterface*> Materials;
-		//TArray<FChunkMeshData> MeshPerMaterial;
-		//TArray<int> VertexCountPerMat;
+	UPROPERTY(EditInstanceOnly, Category = "World")
+	int WaterLevel = 15;
+
+	UFUNCTION(BlueprintCallable, Category = "Chunk")
+	void ModifyVoxel(const FIntVector Position, const EBlock Block);
+
+	UFUNCTION(BlueprintCallable, Category = "Chunk")
+	EBlock GetBlockType(const FIntVector Index) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Chunk")
+	FBlockData GetBlockData(const FIntVector Index) const;
+
+	int GetBlockIndex(int X, int Y, int Z) const;
+
+	void GenerateMesh(bool isLandMesh);
+
+	// Sets the biome information for a specific block
+	void SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Humidity);
+
+	TArray<FBlockData> Blocks;
+
+	TArray<FIntVector> WaterBlockPositions;
+
+	void GenerateTrees(TArray<FIntVector> LocalTreePositions);
+
+	void RegenerateChunkBlockTextures();
+
+
 
 protected:
 	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	void BeginPlay() ;
 
-	virtual void Setup() PURE_VIRTUAL(AChunkBase::Setup);
-	virtual void Generate2DHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::Generate2DHeightMap);
-	virtual void Generate3DHeightMap(const FVector Position) PURE_VIRTUAL(AChunkBase::Generate3DHeightMap);
-	virtual void GenerateMesh() PURE_VIRTUAL(AChunkBase::GenerateMesh);
+	void GenerateHeightMap(const FVector Position);
+	void GenerateWaterAndHumidity(const FVector Position);
 
-	virtual void ModifyVoxelData(const FIntVector Position, const EBlock Block) PURE_VIRTUAL(AChunkBase::RemoveVoxelData);
 
-	TObjectPtr<UProceduralMeshComponent> Mesh;
-	FastNoiseLite* Noise;
-	FChunkMeshData MeshData;
-	int VertexCount = 0;
+
+	void ModifyVoxelData(const FIntVector Position, const EBlock Block);
+	TObjectPtr<UProceduralMeshComponent> LandMesh;
+	TObjectPtr<UProceduralMeshComponent> LiquidMesh;
+	TUniquePtr<FastNoiseLite> Noise;
+	FChunkMeshData LandMeshData;
+	FChunkMeshData LiquidMeshData;
+	int LandVertexCount = 0;
+	int LiquidVertexCount = 0;
+
+	FCollisionResponseContainer LandMeshResponse;
+	FCollisionResponseContainer WaterMeshResponse;
 
 private:
-	void ApplyMesh() const;
-	void ClearMesh();
-	void GenerateHeightMap();
+	void ApplyMesh(bool isLandMesh) const;
+	void ClearMesh(bool isLandMesh);
+	void GenerateChunk();
+
+	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4, FChunkMeshData& MeshData, int& VertexCount);
+
+	bool CompareMask(FMask M1, FMask M2) const;
+	int GetTextureIndex(EBlock Block, FVector Normal) const;
+
+	TArray<FIntVector> TreePositions;
+
+	void PrintMeshData(bool isLandMesh) const;
+	void UpdateWaterMesh();
+
+
 };

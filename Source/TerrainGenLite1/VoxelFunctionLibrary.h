@@ -14,12 +14,13 @@ class UVoxelFunctionLibrary final : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
+public:
 	UFUNCTION(BlueprintPure, Category = "Voxel")
 	static FIntVector WorldToBlockPosition(const FVector& Position);
 
 	UFUNCTION(BlueprintPure, Category = "Voxel")
-	static FIntVector WorldToLocalBlockPosition(const FVector& Position, const int Size);
+	static FIntVector WorldToLocalBlockPosition(const FVector& Position, const int ChunkSize);
 
 	UFUNCTION(BlueprintPure, Category = "Voxel")
-	static FIntVector WorldToChunkPosition(const FVector& Position, const int Size);
+	static FIntVector WorldToChunkPosition(const FVector& Position, const int ChunkSize);
 };

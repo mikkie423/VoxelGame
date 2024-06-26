@@ -6,45 +6,62 @@
 #include "GameFramework/Actor.h"
 
 #include "Enums.h"
-
+#include "FastNoiseLite.h"
 #include "ChunkWorld.generated.h"
 
 class AChunkBase;
+class FastNoiseLite;
 
 UCLASS()
 class AChunkWorld final : public AActor
 {
-	GENERATED_BODY()
-	
+    GENERATED_BODY()
+
 public:
-	UPROPERTY(EditInstanceOnly, Category = "World")
-	TSubclassOf<AChunkBase> ChunkType;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Generation")
+    int WorldSeed;
 
-	UPROPERTY(EditInstanceOnly, Category = "World")
-	int DrawDistance = 5;
+    UPROPERTY(EditInstanceOnly, Category = "World")
+    TSubclassOf<AChunkBase> ChunkType;
 
-	UPROPERTY(EditInstanceOnly, Category = "Chunk")
-	TObjectPtr<UMaterialInterface> Material;
+    UPROPERTY(EditInstanceOnly, Category = "World")
+    int DrawDistance = 5;
 
-	UPROPERTY(EditInstanceOnly, Category = "Chunk")
-	int Size = 32;
+    UPROPERTY(EditInstanceOnly, Category = "Chunk")
+    TObjectPtr<UMaterialInterface> LandMaterial;
 
-	UPROPERTY(EditInstanceOnly, Category = "Height Map")
-	EGenerationType GenerationType;
+    UPROPERTY(EditInstanceOnly, Category = "Chunk")
+    TObjectPtr<UMaterialInterface> LiquidMaterial;
 
-	UPROPERTY(EditInstanceOnly, Category = "Height Map")
-	float Frequency = 0.03f;
+    UPROPERTY(EditInstanceOnly, Category = "Chunk")
+    int ChunkSize = 32;
 
-	// Sets default values for this actor's properties
-	AChunkWorld();
+    int BlockSize = 100;
+
+    UPROPERTY(EditInstanceOnly, Category = "Height Map")
+    float Frequency = 0.03f;
+
+    // Sets default values for this actor's properties
+    AChunkWorld();
+
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+    // Called when the game starts or when spawned
+    virtual void BeginPlay() override;
 
 private:
-	int ChunkCount;
+    int ChunkCount;
 
-	void Generate3DWorld();
-	void Generate2DWorld();
+    void Generate3DWorld();
+
+    EBiome GetBiomeType(float NoiseValue, float Humidity) const;
+
+    void SetBiomeForChunk(AChunkBase* Chunk, int32 ChunkX, int32 ChunkY, int32 ChunkZ);
+    float CalculateHumidity(AChunkBase* Chunk, int32 bx, int32 by, int32 bz);
+    FVector GetNearestWaterSource(const FVector& Position);
+
+    TArray<AChunkBase*> Chunks;
+
+    TUniquePtr<FastNoiseLite> BiomeNoise;
+    TUniquePtr<FastNoiseLite> HumidityNoise;
 };

@@ -28,6 +28,7 @@ void AChunkBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	Noise->SetSeed(WorldSeed);
 	Noise->SetFrequency(Frequency);
 	Noise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 	Noise->SetFractalType(FastNoiseLite::FractalType_FBm);
@@ -144,32 +145,6 @@ void AChunkBase::SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Hum
 
 }
 
-
-
-//void AChunkBase::GenerateWaterAndHumidity(const FVector Position)
-//{
-//
-//		// Check if the block is air and within certain Z range
-//		if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Air && z < WaterLevel)
-//		{
-//			if (z < WaterLevel && z >= WaterLevel - 5)
-//			{
-//				Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::ShallowWater;
-//			}
-//			else if (z < WaterLevel - 5)
-//			{
-//				Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::DeepWater;
-//			}
-//
-//			Blocks[GetBlockIndex(x, y, z)].bIsSolid = false;
-//			Blocks[GetBlockIndex(x, y, z)].Humidity = 1.0f;
-//		}
-//		else
-//		{
-//			Blocks[GetBlockIndex(x, y, z)].Humidity = 1.0f;
-//		}
-//
-//}
 
 
 void AChunkBase::GenerateHeightMap(const FVector Position)
@@ -601,13 +576,7 @@ void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
 		// Only modify if the block type is different
 		ModifyVoxelData(Position, Block);
 
-		ClearMesh(true);
-		ClearMesh(false);
-		UpdateWaterMesh();
-		GenerateMesh(true);
-		GenerateMesh(false);
-		ApplyMesh(true);
-		ApplyMesh(false);
+		RegenerateChunkBlockTextures();
 	}
 }
 
@@ -750,6 +719,7 @@ void AChunkBase::RegenerateChunkBlockTextures()
 
 	ClearMesh(true);
 	ClearMesh(false);
+	UpdateWaterMesh();
 	GenerateMesh(true);
 	GenerateMesh(false);
 	ApplyMesh(true);

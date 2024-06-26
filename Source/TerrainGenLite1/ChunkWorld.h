@@ -18,6 +18,9 @@ class AChunkWorld final : public AActor
     GENERATED_BODY()
 
 public:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Generation")
+    int WorldSeed;
+
     UPROPERTY(EditInstanceOnly, Category = "World")
     TSubclassOf<AChunkBase> ChunkType;
 

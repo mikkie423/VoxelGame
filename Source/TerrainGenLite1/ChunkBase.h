@@ -32,11 +32,12 @@ public:
 
 	TObjectPtr<UMaterialInterface> LandMaterial;
 	TObjectPtr<UMaterialInterface> LiquidMaterial;
+
+	int WorldSeed;
 	float Frequency;
 	int ZRepeat;
 	int DrawDistance;
-
-	int BlockSize = 100;
+	int BlockSize;
 
 	UPROPERTY(EditInstanceOnly, Category = "World")
 	int WaterLevel = 15;
@@ -58,6 +59,7 @@ public:
 	void SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Humidity);
 
 	TArray<FBlockData> Blocks;
+
 	TArray<FIntVector> WaterBlockPositions;
 
 	void GenerateTrees(TArray<FIntVector> LocalTreePositions);

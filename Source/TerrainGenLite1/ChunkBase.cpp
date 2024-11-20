@@ -7,6 +7,8 @@
 #include "CollisionQueryParams.h"
 #include "Engine/CollisionProfile.h"
 #include "VoxelFunctionLibrary.h"
+#include "Math/Vector2D.h"
+#include <array>
 #include "ProceduralMeshComponent.h"
 
 // Sets default values
@@ -21,7 +23,10 @@ AChunkBase::AChunkBase()
 	LiquidMesh->SetupAttachment(LandMesh);
 }
 
-
+void AChunkBase::NotifyMeshUpdated()
+{
+	OnChunkMeshUpdated.Broadcast();
+}
 
 // Called when the game starts or when spawned
 void AChunkBase::BeginPlay()
@@ -72,7 +77,7 @@ void AChunkBase::SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Hum
 
 		break;
 	case EBiome::Desert:
-		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass || Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Dirt)
+		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Grass || Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::DryDirt)
 		{
 			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Sand;
 		}
@@ -97,7 +102,7 @@ void AChunkBase::SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Hum
 		}
 		if (Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType == EBlock::Sand && Z < 15)
 		{
-			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::Dirt;
+			Blocks[GetBlockIndex(X, Y, Z)].Mask.BlockType = EBlock::WetDirt;
 		}
 		break;
 	case EBiome::Tundra:
@@ -136,13 +141,28 @@ void AChunkBase::SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Hum
 			{
 				TreePositions.Add(FIntVector(X, Y, Z));
 			}
+			else
+			{
+				randNum = FMath::FRandRange(1, 8);
+				if (randNum == 1 || randNum == 3 || randNum == 5)
+				{
+					
+					FDecorationData DecorationData;
+					DecorationData.Position = FIntVector(X, Y, Z + 1);
+					DecorationData.DecorationBlockType = EBlock::ShortGrass;
+					DecorationData.TextureIndex = 20;
+
+					FloraPositions.Add(DecorationData);
+
+					UE_LOG(LogTemp, Warning, TEXT("ChunkBase: Flora Position added at: %d, %d, %d"), X, Y, Z);
+				}
+			}
 		}
 		break;
 	default:
 		break;
 	}
 	GenerateTrees(TreePositions);
-
 }
 
 
@@ -170,6 +190,7 @@ void AChunkBase::GenerateHeightMap(const FVector Position)
 				{
 					Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Bedrock;
 					Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
+					Blocks[GetBlockIndex(x, y, z)].BlockHardness = 1.0f;
 				}
 				else if (NoiseValue >= 0 && Zpos <= SurfaceHeight - 7)
 				{
@@ -182,16 +203,20 @@ void AChunkBase::GenerateHeightMap(const FVector Position)
 					{
 						Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Stone;
 						Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
+						Blocks[GetBlockIndex(x, y, z)].BlockHardness = 0.5f;
 					}
 					else if (Zpos < SurfaceHeight - 1)
 					{
-						Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Dirt;
+						Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::DryDirt;
 						Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
+						Blocks[GetBlockIndex(x, y, z)].BlockHardness = 0.2f;
+
 					}
 					else if (Zpos == SurfaceHeight - 1)
 					{
 						Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Grass;
 						Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
+						Blocks[GetBlockIndex(x, y, z)].BlockHardness = 0.2f;
 					}
 					else
 					{
@@ -216,15 +241,25 @@ void AChunkBase::GenerateHeightMap(const FVector Position)
 							Blocks[GetBlockIndex(x, y, z)].Humidity = 1.0f;
 							WaterBlockPositions.Add(FIntVector(x, y, z));
 						}
-						if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass || Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Dirt && Zpos > 10)
+						if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass || Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::DryDirt && Zpos > 10)
 						{
 							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Sand;
 							Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
+							Blocks[GetBlockIndex(x, y, z)].BlockHardness = 0.2f;
 						}
-						else if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Dirt || Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass)
+						else if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::DryDirt || Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass)
 						{
 							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::Gravel;
 							Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
+							Blocks[GetBlockIndex(x, y, z)].BlockHardness = 0.2f;
+
+						}
+						else if (Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::DryDirt || Blocks[GetBlockIndex(x, y, z)].Mask.BlockType == EBlock::Grass)
+						{
+							Blocks[GetBlockIndex(x, y, z)].Mask.BlockType = EBlock::WetDirt;
+							Blocks[GetBlockIndex(x, y, z)].bIsSolid = true;
+							Blocks[GetBlockIndex(x, y, z)].BlockHardness = 0.2f;
+
 						}
 					}
 				}
@@ -440,74 +475,84 @@ void AChunkBase::CreateQuad(
 	int& VertexCount
 )
 {
+	// Skip empty or non-existent blocks
 	if (BlockData.Mask.BlockType == EBlock::Air || BlockData.Mask.BlockType == EBlock::Null)
 	{
-		return; // Skip empty or non-existent blocks
+		return;
 	}
 
+	// Calculate the normal vector based on the axis mask
 	const auto NormalVector = FVector(AxisMask * BlockData.Mask.Normal);
 	auto Color = FColor(0, 0, 0, GetTextureIndex(BlockData.Mask.BlockType, NormalVector));
 
 
-	MeshData.Vertices.Append({
-		FVector(V1) * 100,
-		FVector(V2) * 100,
-		FVector(V3) * 100,
-		FVector(V4) * 100
-		});
+		MeshData.Vertices.Append({
+			FVector(V1) * 100,
+			FVector(V2) * 100,
+			FVector(V3) * 100,
+			FVector(V4) * 100
+			});
 
-	MeshData.Triangles.Append({
-	   VertexCount,
-	   VertexCount + 2 + BlockData.Mask.Normal,
-	   VertexCount + 2 - BlockData.Mask.Normal,
-	   VertexCount + 3,
-	   VertexCount + 1 - BlockData.Mask.Normal,
-	   VertexCount + 1 + BlockData.Mask.Normal
-		});
+		// Define triangles
+		MeshData.Triangles.Append({
+			VertexCount,
+			VertexCount + 2 + BlockData.Mask.Normal,
+			VertexCount + 2 - BlockData.Mask.Normal,
+			VertexCount + 3,
+			VertexCount + 1 - BlockData.Mask.Normal,
+			VertexCount + 1 + BlockData.Mask.Normal
+			});
 
-	MeshData.Normals.Append({
-		NormalVector,
-		NormalVector,
-		NormalVector,
-		NormalVector
-		});
+		// Apply normals and colors
+		MeshData.Normals.Append({
+			NormalVector, NormalVector, NormalVector, NormalVector
+			});
 
-	MeshData.Colors.Append({
-		Color,
-		Color,
-		Color,
-		Color
-		});
+		MeshData.Colors.Append({
+			Color, Color, Color, Color
+			});
+
+		auto UVs = GetUVMapping(BlockData, NormalVector, Width, Height);
+		MeshData.UV0.Append(UVs.data(), UVs.size());
+
+		// Append block data
+		MeshData.BlockData.Append({
+			BlockData,
+			BlockData,
+			BlockData,
+			BlockData
+			});
+
+		VertexCount += 4; // Increment for 4 new vertices added
+}
+
+
+std::array<FVector2D, 4> AChunkBase::GetUVMapping(const FBlockData& BlockData, const FVector& NormalVector, int Width, int Height)
+{
+	std::array<FVector2D, 4> UVs;
 
 	if (NormalVector.X == 1 || NormalVector.X == -1)
 	{
-		MeshData.UV0.Append({
+		UVs = {
 			FVector2D(Width, Height),
 			FVector2D(0, Height),
 			FVector2D(Width, 0),
 			FVector2D(0, 0)
-			});
+		};
 	}
 	else
 	{
-		MeshData.UV0.Append({
+		UVs = {
 			FVector2D(Height, Width),
 			FVector2D(Height, 0),
 			FVector2D(0, Width),
 			FVector2D(0, 0)
-			});
+		};
 	}
 
-	MeshData.BlockData.Append({
-		BlockData,
-		BlockData,
-		BlockData,
-		BlockData
-		});
-
-	VertexCount += 4;
-
+	return UVs;
 }
+
 
 
 void AChunkBase::ApplyMesh(bool isLandMesh) const
@@ -577,6 +622,9 @@ void AChunkBase::ModifyVoxel(const FIntVector Position, const EBlock Block)
 		ModifyVoxelData(Position, Block);
 
 		RegenerateChunkBlockTextures();
+
+		// Notify that the chunk's mesh has been updated
+		NotifyMeshUpdated();
 	}
 }
 
@@ -585,7 +633,7 @@ void AChunkBase::ModifyVoxelData(const FIntVector Position, const EBlock Block)
 {
 	const int Index = GetBlockIndex(Position.X, Position.Y, Position.Z);
 	UE_LOG(LogTemp, Warning, TEXT("X: %d, Y: %d, Z: %d"), Position.X, Position.Y, Position.Z);
-	Blocks[Index].Mask.BlockType = Block;
+	Blocks[Index].Mask.BlockType = Block;	
 }
 
 int AChunkBase::GetBlockIndex(const int X, const int Y, const int Z) const
@@ -598,6 +646,13 @@ EBlock AChunkBase::GetBlockType(const FIntVector Index) const
 	if (Index.X >= ChunkSize || Index.Y >= ChunkSize || Index.Z >= ChunkSize || Index.X < 0 || Index.Y < 0 || Index.Z < 0)
 		return EBlock::Air;
 	return Blocks[GetBlockIndex(Index.X, Index.Y, Index.Z)].Mask.BlockType;
+}
+
+float AChunkBase::GetBlockHardnessScale(const FIntVector Index) const
+{
+	if (Index.X >= ChunkSize || Index.Y >= ChunkSize || Index.Z >= ChunkSize || Index.X < 0 || Index.Y < 0 || Index.Z < 0)
+		return 0.0f;
+	return Blocks[GetBlockIndex(Index.X, Index.Y, Index.Z)].BlockHardness;
 }
 
 FBlockData AChunkBase::GetBlockData(const FIntVector Index) const
@@ -615,33 +670,55 @@ bool AChunkBase::CompareMask(const FMask M1, const FMask M2) const
 
 int AChunkBase::GetTextureIndex(const EBlock Block, const FVector Normal) const
 {
+
+	
 	switch (Block) {
 	case EBlock::Grass:
 	{
 		if (Normal == FVector::UpVector) return 0;
+		if (Normal == FVector::DownVector) return 2;
 		return 1;
 	}
-	case EBlock::Dirt: return 2;
+	case EBlock::DryDirt: return 2;
 	case EBlock::Stone: return 3;
 	case EBlock::Bedrock: return 4;
-	case EBlock::Log:return 5;
-	case EBlock::Leaves:return 6;
-	case EBlock::Sand:return 7;
-	case EBlock::Gravel:return 8;
-	case EBlock::ShallowWater:return 9;
-	case EBlock::DeepWater:return 10;
-	case EBlock::Swamp:return 11;
-	case EBlock::Taiga:return 12;
-	case EBlock::Tundra:return 13;
-	case EBlock::Ice:return 14;
+	case EBlock::Log:
+		if (Normal == FVector::UpVector || Normal == FVector::DownVector) return 6;
+		return 5;
+	case EBlock::WoodPlanks: return 7;
+	case EBlock::Leaves:return 8;
+	case EBlock::Sand:return 9;
+	case EBlock::Gravel:return 10;
+	case EBlock::ShallowWater:return 11;
+	case EBlock::DeepWater:return 12;
+	case EBlock::Swamp:return 13;
+	case EBlock::Taiga:return 14;
+	case EBlock::Tundra:return 15;
+	case EBlock::Ice:return 16;
+	case EBlock::WetDirt: return 17;
+	case EBlock::WetFarmland:
+	{
+		if (Normal == FVector::UpVector) return 18;
+		return 17; // wetdirt sides and base
+	}
+	case EBlock::DryFarmland:
+	{
+		if (Normal == FVector::UpVector) return 19;
+		return 2; // drydirt sides and base
+	}
+	case EBlock::ShortGrass: return 20;
+	case EBlock::Seeds: return 21;
+	case EBlock::Torch: return 22;
 	default: return 255;
 	}
 }
 
 void AChunkBase::GenerateTrees(TArray<FIntVector> LocalTreePositions)
 {
-	// Define tree height
-	int TreeHeight = 5;
+	// Defaults
+	int DefaultTreeHeight = 5;
+	EBlock DefaultLog = EBlock::Log;
+	EBlock DefaultLeaves = EBlock::Leaves;
 
 	for (const FIntVector& Position : LocalTreePositions)
 	{
@@ -649,6 +726,39 @@ void AChunkBase::GenerateTrees(TArray<FIntVector> LocalTreePositions)
 		int Y = Position.Y;
 		int Z = Position.Z;
 
+		EBiome CurrentBiome = Blocks[GetBlockIndex(X, Y, Z)].BiomeType;
+
+		int TreeHeight = DefaultTreeHeight;
+		EBlock Log = DefaultLog;
+		EBlock Leaves = DefaultLeaves;
+
+
+		switch (CurrentBiome)
+		{
+		case EBiome::Null:
+			break;
+		case EBiome::Desert:
+			break;
+		case EBiome::Swamp:
+			TreeHeight = 7;
+			Log = EBlock::Log;
+			Leaves = EBlock::Leaves;
+			break;
+		case EBiome::Tundra:
+			break;
+		case EBiome::Taiga:
+			TreeHeight = 10;
+			Log = EBlock::Log;
+			Leaves = EBlock::Leaves;
+			break;
+		case EBiome::Plains:
+			break;
+		default:
+			break;
+		}
+
+
+		/********************************** Generating Trees **********************************************/
 		// Place the trunk
 		for (int i = 0; i < TreeHeight; ++i)
 		{
@@ -657,6 +767,8 @@ void AChunkBase::GenerateTrees(TArray<FIntVector> LocalTreePositions)
 				const int Index = GetBlockIndex(X, Y, Z + i);
 				Blocks[Index].Mask.BlockType = EBlock::Log;
 				Blocks[Index].bIsSolid = true;
+				Blocks[Index].BlockHardness = 0.3f;
+
 			}
 		}
 
@@ -681,14 +793,22 @@ void AChunkBase::GenerateTrees(TArray<FIntVector> LocalTreePositions)
 							const int Index = GetBlockIndex(X + dx, Y + dy, Z + dz);
 							Blocks[Index].Mask.BlockType = EBlock::Leaves;
 							Blocks[Index].bIsSolid = true;
-
+							Blocks[Index].BlockHardness = 0.1f;
 						}
 					}
 				}
 			}
 		}
+
 	}
 }
+
+TArray<FDecorationData> AChunkBase::GetFloraPositions() const
+{
+	return FloraPositions; // Assuming FloraPositions is populated during biome assignment
+}
+
+
 
 
 void AChunkBase::PrintMeshData(bool isLandMesh) const
@@ -758,7 +878,7 @@ void AChunkBase::UpdateWaterMesh()
 								{
 									auto NeighborBlockType = Blocks[GetBlockIndex(nx, ny, nz)].Mask.BlockType;
 
-									if (NeighborBlockType == EBlock::Air && (nz+1) <= WaterLevel)
+									if (NeighborBlockType == EBlock::Air && (nz + 1) <= WaterLevel)
 									{
 										// Convert air pocket to water
 										Blocks[GetBlockIndex(nx, ny, nz)].Mask.BlockType = BlockType;

@@ -9,7 +9,7 @@
 #include "FastNoiseLite.h"
 #include "ChunkWorld.generated.h"
 
-class AChunkBase;
+class AChunkBase; 
 class FastNoiseLite;
 
 UCLASS()
@@ -24,10 +24,13 @@ public:
     UPROPERTY(EditInstanceOnly, Category = "World")
     TSubclassOf<AChunkBase> ChunkType;
 
+    UPROPERTY(EditAnywhere, Category = "Flora")
+    TSubclassOf<AActor> FloraBlueprint;
+
     UPROPERTY(EditInstanceOnly, Category = "World")
     int DrawDistance = 5;
 
-    UPROPERTY(EditInstanceOnly, Category = "Chunk")
+    UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Chunk")
     TObjectPtr<UMaterialInterface> LandMaterial;
 
     UPROPERTY(EditInstanceOnly, Category = "Chunk")
@@ -41,11 +44,18 @@ public:
     UPROPERTY(EditInstanceOnly, Category = "Height Map")
     float Frequency = 0.03f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
+    bool bShouldSpawnDeath;
+    bool bShouldSpawnSheep;
+
+
+
     // Sets default values for this actor's properties
     AChunkWorld();
 
 
 protected:
+
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;
 
@@ -60,8 +70,16 @@ private:
     float CalculateHumidity(AChunkBase* Chunk, int32 bx, int32 by, int32 bz);
     FVector GetNearestWaterSource(const FVector& Position);
 
+    void UpdateNavMeshBoundsVolume();
+
+    UFUNCTION()
+    void OnChunkMeshUpdated();
+
+    void GenerateFlora();
+
     TArray<AChunkBase*> Chunks;
 
     TUniquePtr<FastNoiseLite> BiomeNoise;
     TUniquePtr<FastNoiseLite> HumidityNoise;
+
 };

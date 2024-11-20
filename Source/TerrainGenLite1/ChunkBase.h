@@ -7,6 +7,8 @@
 #include "BlockData.h"
 #include "FastNoiseLite.h"
 #include "ProceduralMeshComponent.h"
+#include "Math/Vector2D.h"
+#include <array>
 #include "ChunkBase.generated.h"
 
 
@@ -14,9 +16,10 @@
 #define ECC_LandMesh ECC_GameTraceChannel2
 #define ECC_WaterMesh ECC_GameTraceChannel3
 
-
 class FastNoiseLite;
 class UProceduralMeshComponent;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnChunkMeshUpdated);
 
 UCLASS()
 class TERRAINGENLITE1_API AChunkBase: public AActor
@@ -26,6 +29,13 @@ class TERRAINGENLITE1_API AChunkBase: public AActor
 public:
 	// Sets default values for this actor's properties
 	AChunkBase();
+
+	// Delegate for notifying mesh updates
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnChunkMeshUpdated OnChunkMeshUpdated;
+
+	// Call this when the mesh is updated
+	void NotifyMeshUpdated();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Chunk")
 	int ChunkSize = 32;
@@ -49,11 +59,29 @@ public:
 	EBlock GetBlockType(const FIntVector Index) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Chunk")
+	float GetBlockHardnessScale(const FIntVector Index) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Chunk")
 	FBlockData GetBlockData(const FIntVector Index) const;
 
 	int GetBlockIndex(int X, int Y, int Z) const;
 
 	void GenerateMesh(bool isLandMesh);
+
+	FMask DetermineMask(const FBlockData& CurrentBlock, const FBlockData& CompareBlock, bool CurrentIsOpaque, bool CompareIsOpaque, bool CurrentIsLiquid, bool CompareIsLiquid, bool CurrentIsNonSolid, bool CompareIsNonSolid);
+
+	bool IsOpaque(EBlockCategory BlockCategory);
+
+	bool IsNonSolid(EBlockCategory BlockCategory);
+
+
+	bool IsLiquid(EBlockCategory BlockCategory);
+
+	void ClearMaskInBlockData(TArray<FBlockData>& BlockData, int N, int Width, int Height, int Axis1Limit);
+
+	int DetermineWidth(const TArray<FBlockData>& BlockData, int N, const FMask& CurrentMask, int Axis1Limit);
+
+	int DetermineHeight(const TArray<FBlockData>& BlockData, int N, const FMask& CurrentMask, int Width, int Axis1Limit, int Axis2Limit, int j);
 
 	// Sets the biome information for a specific block
 	void SetBiome(int32 X, int32 Y, int32 Z, EBiome BiomeType, float Humidity);
@@ -64,7 +92,11 @@ public:
 
 	void GenerateTrees(TArray<FIntVector> LocalTreePositions);
 
+	TArray<FDecorationData> GetFloraPositions() const;
+	//void GenerateFlora(TArray<FIntVector> LocalFloraPositions);
+
 	void RegenerateChunkBlockTextures();
+	int GetTextureIndex(EBlock Block, FVector Normal) const;
 
 
 
@@ -94,15 +126,17 @@ private:
 	void ClearMesh(bool isLandMesh);
 	void GenerateChunk();
 
-	void CreateQuad( const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4, FChunkMeshData& MeshData, int& VertexCount);
+	void CreateQuad(const FBlockData BlockData, const FIntVector AxisMask, int Width, int Height, const FIntVector V1, const FIntVector V2, const FIntVector V3, const FIntVector V4, FChunkMeshData& MeshData, int& VertexCount);
+
+	std::array<FVector2D, 4> GetUVMapping(const FBlockData& BlockData, const FVector& NormalVector, int Width, int Height);
 
 	bool CompareMask(FMask M1, FMask M2) const;
-	int GetTextureIndex(EBlock Block, FVector Normal) const;
 
 	TArray<FIntVector> TreePositions;
+	TArray<FDecorationData> FloraPositions;
 
 	void PrintMeshData(bool isLandMesh) const;
 	void UpdateWaterMesh();
 
-
 };
+

@@ -36,6 +36,12 @@ public:
     bool bIsSolid;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
+    EBlockCategory BlockCategory;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
+    float BlockHardness = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
     int TextureIndex;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Block Properties")
@@ -45,12 +51,31 @@ public:
     float Humidity;
 
     FBlockData()
-        : Mask(), bIsSolid(true), TextureIndex(-1), BiomeType(EBiome::Null), Humidity(0.5) {}
+        : Mask(), BlockCategory(EBlockCategory::Null), TextureIndex(-1), BiomeType(EBiome::Null), Humidity(0.5) {}
 
-    FBlockData(const FMask& InMask, bool InSolid, int InTextureIndex, EBiome InBiomeType, int InHumidity)
-        : Mask(InMask), bIsSolid(InSolid), TextureIndex(InTextureIndex), BiomeType(InBiomeType), Humidity(InHumidity) {}
+    FBlockData(const FMask& InMask, EBlockCategory InBlockCategory, int InTextureIndex, EBiome InBiomeType, int InHumidity)
+        : Mask(InMask), BlockCategory(InBlockCategory), TextureIndex(InTextureIndex), BiomeType(InBiomeType), Humidity(InHumidity) {}
 };
 
+
+
+USTRUCT(BlueprintType)
+struct FDecorationData
+{
+    GENERATED_BODY()
+
+    // The biome this flora should be present in
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flora Generation")
+    FIntVector Position;
+
+    // The chance of spawning the flora in this biome
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flora Generation")
+    EBlock DecorationBlockType;
+
+    // The texture/material index for the flora (can map to specific texture/material in your setup)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flora Generation")
+    int32 TextureIndex; // Represent the texture/material index
+};
 
 
 //USTRUCT(BlueprintType)

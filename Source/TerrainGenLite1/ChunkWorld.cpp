@@ -1,5 +1,7 @@
 #include "ChunkWorld.h"
 #include "ChunkBase.h"
+#include "NavMesh/NavMeshBoundsVolume.h"
+#include "NavigationSystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "VoxelGameInstance.h"
 
@@ -11,6 +13,12 @@ AChunkWorld::AChunkWorld()
 	// Initialize BiomeNoise
 	BiomeNoise = MakeUnique<FastNoiseLite>();
 	HumidityNoise = MakeUnique<FastNoiseLite>();
+}
+
+void AChunkWorld::OnChunkMeshUpdated()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Chunk mesh updated. Updating NavMesh..."));
+	UpdateNavMeshBoundsVolume();
 }
 
 // Called when the game starts or when spawned
@@ -95,7 +103,12 @@ void AChunkWorld::Generate3DWorld()
 
 				UGameplayStatics::FinishSpawningActor(Chunk, Transform);
 
+
 				SetBiomeForChunk(Chunk, x, y, z);
+
+				Chunks.Add(Chunk);
+				// Bind to the OnChunkMeshUpdated delegate
+				Chunk->OnChunkMeshUpdated.AddDynamic(this, &AChunkWorld::OnChunkMeshUpdated);
 
 				ChunkCount++;
 				UE_LOG(LogTemp, Warning, TEXT("Finished chunk?"));
@@ -103,6 +116,9 @@ void AChunkWorld::Generate3DWorld()
 			}
 		}
 	}
+	GenerateFlora();
+	// Create or update NavMeshBoundsVolume
+	UpdateNavMeshBoundsVolume();
 }
 
 void AChunkWorld::SetBiomeForChunk(AChunkBase* Chunk, int32 ChunkX, int32 ChunkY, int32 ChunkZ)
@@ -271,3 +287,129 @@ FVector AChunkWorld::GetNearestWaterSource(const FVector& Position)
 }
 
 
+void AChunkWorld::UpdateNavMeshBoundsVolume()
+{
+	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+	if (PlayerController)
+	{
+		APawn* PlayerPawn = PlayerController->GetPawn();
+		if (PlayerPawn)
+		{
+			// Get player position
+			FVector PlayerLocation = PlayerPawn->GetActorLocation();
+
+			// Set WorldCenter to the player's location, adjusting as needed for the surrounding area
+			FVector WorldCenter = PlayerLocation;
+
+			// Adjust the extent to define the area around the player for the navmesh
+			FVector WorldExtent = FVector(ChunkSize * DrawDistance, ChunkSize * DrawDistance, ChunkSize * DrawDistance * 2);
+
+			// Find or spawn the NavMeshBoundsVolume
+			ANavMeshBoundsVolume* NavMeshBounds = nullptr;
+			TArray<AActor*> FoundNavMeshVolumes;
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), ANavMeshBoundsVolume::StaticClass(), FoundNavMeshVolumes);
+
+			if (FoundNavMeshVolumes.Num() > 0)
+			{
+				NavMeshBounds = Cast<ANavMeshBoundsVolume>(FoundNavMeshVolumes[0]);
+			}
+			else
+			{
+				NavMeshBounds = GetWorld()->SpawnActor<ANavMeshBoundsVolume>();
+			}
+
+			if (NavMeshBounds)
+			{
+				// Set the size and position of the NavMeshBoundsVolume around the player
+				NavMeshBounds->SetActorLocation(WorldCenter);
+				NavMeshBounds->SetActorScale3D(WorldExtent);
+
+				// Force navigation rebuild
+				UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+				if (NavSys)
+				{
+					// Notify the navigation system that the bounds have changed
+					NavSys->OnNavigationBoundsUpdated(NavMeshBounds);
+
+					// Optionally trigger a rebuild for immediate updates
+					NavSys->Build(); // Use with caution as this can cause lag
+				}
+			}
+		}
+	}
+}
+
+
+void AChunkWorld::GenerateFlora()
+{
+	// Ensure the FloraBlueprint is valid
+	if (!FloraBlueprint)
+	{
+		UE_LOG(LogTemp, Error, TEXT("FloraBlueprint is not valid!"));
+		return;
+	}
+
+	// Loop through all chunks
+	for (AChunkBase* Chunk : Chunks)
+	{
+		// Ensure Chunk is valid
+		if (!Chunk)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Found invalid chunk. Skipping."));
+			continue;
+		}
+
+		// Get the local flora data for this chunk
+		TArray<FDecorationData> LocalFloraData = Chunk->GetFloraPositions();
+
+		if (LocalFloraData.Num() == 0)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("No flora data found for chunk at %s"), *Chunk->GetActorLocation().ToString());
+		}
+
+		// Loop through each decoration data entry
+		for (const FDecorationData& DecorationData : LocalFloraData)
+		{
+			// Calculate spawn location based on chunk and decoration data
+			FVector SpawnLocation = Chunk->GetActorLocation() + FVector(DecorationData.Position.X, DecorationData.Position.Y, DecorationData.Position.Z) * BlockSize;
+
+			// Log the spawn location and texture index for debugging
+			UE_LOG(LogTemp, Log, TEXT("Spawning flora at %s with TextureIndex: %d"), *SpawnLocation.ToString(), DecorationData.TextureIndex);
+
+			// Set spawn parameters
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = this;
+
+			// Spawn the Flora blueprint actor at the specified location
+			AActor* SpawnedFlora = GetWorld()->SpawnActor<AActor>(FloraBlueprint, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+
+			// Check if the flora was spawned successfully
+			if (SpawnedFlora)
+			{
+				// Log success
+				UE_LOG(LogTemp, Log, TEXT("Successfully spawned flora actor at %s"), *SpawnLocation.ToString());
+
+				// If the spawned actor is valid, call the SetDecorationData function in BP_Flora
+				UFunction* SetDecorationDataFunc = SpawnedFlora->FindFunction(TEXT("SetDecorationData"));
+				if (SetDecorationDataFunc)
+				{
+					// Log the function being called
+					UE_LOG(LogTemp, Log, TEXT("Calling SetDecorationData on %s"), *SpawnedFlora->GetName());
+
+					// Prepare the parameters for the function call (DecorationData struct)
+					SpawnedFlora->ProcessEvent(SetDecorationDataFunc, (void*)&DecorationData);
+				}
+				else
+				{
+					// Log a warning if the function is not found
+					UE_LOG(LogTemp, Warning, TEXT("SetDecorationData function not found on %s"), *SpawnedFlora->GetName());
+				}
+			}
+			else
+			{
+				// Log an error if the flora couldn't be spawned
+				UE_LOG(LogTemp, Error, TEXT("Failed to spawn flora actor at %s"), *SpawnLocation.ToString());
+			}
+		}
+	}
+}
